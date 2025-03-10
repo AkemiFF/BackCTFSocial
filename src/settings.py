@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     # Third-party apps
     'rest_framework',
     'rest_framework.authtoken',
+    "django_ckeditor_5",
     'corsheaders',
     'django_filters',
     'djoser',
@@ -54,7 +55,6 @@ INSTALLED_APPS = [
     'django_celery_results',
     'debug_toolbar',
     'storages',
-    'ckeditor',
     'crispy_forms',
     'crispy_tailwind',
     
@@ -175,7 +175,7 @@ SIMPLE_JWT = {
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
-STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
+STATICFILES_DIRS = []
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Media files
