@@ -1,0 +1,16 @@
+djangorestframework : Pour l'API REST.
+djangorestframework-simplejwt : Authentification par JWT (si nécessaire en complément de authtoken).
+django-cors-headers : Gestion des CORS (Cross-Origin Resource Sharing).
+django-filter : Filtrage avancé pour Django REST Framework.
+djoser : Gestion simplifiée de l'authentification (inscription, mot de passe, etc.).
+social-auth-app-django : Authentification via des réseaux sociaux (Google, Facebook, etc.).
+markdownx : Saisie et rendu de texte en Markdown.
+django-taggit : Gestion de tags (mots-clés) sur les modèles.
+channels : Support des WebSockets (utile pour le chat vidéo sur MEETOF).
+django-celery-beat : Planification de tâches périodiques avec Celery.
+django-celery-results : Stockage des résultats de tâches Celery.
+django-debug-toolbar : Outil de débogage pour Django.
+boto3 + django-storages : Gestion du stockage distant (ex : Amazon S3).
+django-ckeditor : Éditeur WYSIWYG pour les contenus riches.
+django-crispy-forms : Formulaires stylisés avec un rendu personnalisé.
+crispy-tailwind : Intégration de Tailwind CSS avec django-crispy-forms.
