@@ -151,27 +151,100 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework settings
+# src/settings.py (ajouts)
+import datetime
+
+# Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.CustomJWTAuthentication',
+        'api.authentication.ApiKeyAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': [
+    'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'api.pagination.StandardResultsSetPagination',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'api.throttling.BurstRateThrottle',
+        'api.throttling.SustainedRateThrottle',
+        'api.throttling.AnonymousRateThrottle',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_THROTTLE_RATES': {
+        'burst': '60/min',
+        'sustained': '1000/day',
+        'anon': '20/min',
+    },
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'api.renderers.AdminBrowsableAPIRenderer',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'EXCEPTION_HANDLER': 'api.utils.custom_exception_handler',
 }
 
-# Simple JWT settings
+# JWT Settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
-    'ROTATE_REFRESH_TOKENS': False,
+    'ACCESS_TOKEN_LIFETIME': datetime.timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': datetime.timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': 'HS256',
+    'SIGNING_KEY': SECRET_KEY,
+    'VERIFYING_KEY': None,
+    'AUTH_HEADER_TYPES': ('Bearer',),
+    'USER_ID_FIELD': 'id',
+    'USER_ID_CLAIM': 'user_id',
+    'AUTH_TOKEN_CLASSES': ('rest_framework_simplejwt.tokens.AccessToken',),
+    'TOKEN_TYPE_CLAIM': 'token_type',
+    'JTI_CLAIM': 'jti',
+    'SLIDING_TOKEN_REFRESH_EXP_CLAIM': 'refresh_exp',
+    'SLIDING_TOKEN_LIFETIME': datetime.timedelta(minutes=60),
+    'SLIDING_TOKEN_REFRESH_LIFETIME': datetime.timedelta(days=7),
 }
+
+# drf-spectacular settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Hackitech API',
+    'DESCRIPTION': 'API documentation for the Hackitech platform',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'REDOC_UI_SETTINGS': {
+        'hideHostname': False,
+    },
+    'TAGS': [
+        {'name': 'accounts', 'description': 'User accounts and authentication'},
+        {'name': 'learning', 'description': 'Learning resources and courses'},
+        {'name': 'challenges', 'description': 'Coding challenges and competitions'},
+        {'name': 'core', 'description': 'Core platform functionality'},
+        {'name': 'social', 'description': 'Social networking features'},
+        {'name': 'messaging', 'description': 'User messaging and communication'},
+        {'name': 'teams', 'description': 'Team collaboration features'},
+        {'name': 'gamification', 'description': 'Gamification features like badges and points'},
+        {'name': 'notifications', 'description': 'User notifications'},
+    ],
+    'SECURITY': [
+        {
+            'Bearer': []
+        },
+        {
+            'ApiKeyAuth': []
+        }
+    ],
+}
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
