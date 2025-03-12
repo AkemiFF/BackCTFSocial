@@ -2,7 +2,8 @@ import uuid
 
 from django.conf import settings
 from django.contrib.auth.models import AbstractUser, BaseUserManager
-from django.db import models
+from django.core.exceptions import ValidationError
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.translation import gettext_lazy as _
 
@@ -96,6 +97,20 @@ class User(AbstractUser):
         """Update the last active timestamp."""
         self.last_active = timezone.now()
         self.save(update_fields=['last_active'])
+        
+
+    def update_points(self, amount):
+        if amount == 0:
+            return  # Rien à faire si l'ajout est nul
+
+        with transaction.atomic():
+            # Assure que les points ne deviennent pas négatifs
+            if amount < 0 and self.points + amount < 0:
+                raise ValidationError("Insufficient points to deduct.")
+                
+            self.points = models.F('points') + amount
+            self.save(update_fields=['points'])
+            self.refresh_from_db() 
 
 
 class UserProfile(models.Model):
