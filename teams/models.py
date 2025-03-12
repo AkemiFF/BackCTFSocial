@@ -1,147 +1,102 @@
+# teams/models.py
 import uuid
 
 from django.conf import settings
 from django.db import models
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
+from django.utils.text import slugify
 
 
 class Team(models.Model):
-    """Team model for collaborative work and challenges."""
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(_('name'), max_length=100)
-    description = models.TextField(_('description'), blank=True)
-    logo = models.ImageField(_('logo'), upload_to='team_logos/', blank=True, null=True)
-    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
-    updated_at = models.DateTimeField(_('updated at'), auto_now=True)
-    is_public = models.BooleanField(_('is public'), default=True)
-    website = models.URLField(_('website'), blank=True)
-    github_url = models.URLField(_('GitHub URL'), blank=True)
-    discord_url = models.URLField(_('Discord URL'), blank=True)
-    max_members = models.PositiveIntegerField(_('maximum members'), default=10)
-    tags = models.ManyToManyField('core.Tag', related_name='teams', blank=True)
+    """
+    Represents a team of users working together
+    """
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=120, unique=True, blank=True)
+    description = models.TextField(blank=True)
+    avatar = models.ImageField(upload_to='teams/avatars/', blank=True, null=True)
+    banner = models.ImageField(upload_to='teams/banners/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='created_teams',
+        null=True
+    )
+    is_public = models.BooleanField(default=True)
+    website = models.URLField(blank=True, null=True)
+    github_url = models.URLField(blank=True, null=True)
+    discord_url = models.URLField(blank=True, null=True)
     
     class Meta:
-        verbose_name = _('team')
-        verbose_name_plural = _('teams')
         ordering = ['name']
     
     def __str__(self):
         return self.name
     
-    def get_absolute_url(self):
-        """Return the URL for this team."""
-        return f"/teams/{self.id}/"
+    def save(self, *args, **kwargs):
+        # Generate a slug if one doesn't exist
+        if not self.slug:
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+            
+            # Make sure the slug is unique
+            while Team.objects.filter(slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            self.slug = slug
+        
+        super().save(*args, **kwargs)
     
     @property
     def member_count(self):
-        """Get the number of members in the team."""
-        return self.memberships.count()
-    
-    @property
-    def leader(self):
-        """Get the team leader."""
-        leader_membership = self.memberships.filter(role='leader').first()
-        return leader_membership.user if leader_membership else None
-    
-    @property
-    def total_points(self):
-        """Calculate the total points earned by the team."""
-        from gamification.models import Score
-        return Score.objects.filter(team=self).aggregate(models.Sum('points'))['points__sum'] or 0
-    
-    def add_member(self, user, role='member'):
-        """Add a user to the team."""
-        if self.memberships.count() >= self.max_members:
-            raise ValueError(_("Team has reached maximum member capacity"))
-        
-        if not self.memberships.filter(user=user).exists():
-            TeamMembership.objects.create(team=self, user=user, role=role)
-            return True
-        return False
-    
-    def remove_member(self, user):
-        """Remove a user from the team."""
-        membership = self.memberships.filter(user=user).first()
-        if membership:
-            if membership.role == 'leader' and self.memberships.count() > 1:
-                # Promote another member to leader before removing the current leader
-                new_leader = self.memberships.exclude(user=user).first()
-                new_leader.role = 'leader'
-                new_leader.save()
-            
-            membership.delete()
-            return True
-        return False
+        return self.members.count()
 
 
-class TeamMembership(models.Model):
-    """Membership of a user in a team."""
-    
+class TeamMember(models.Model):
+    """
+    Represents a member of a team with a specific role
+    """
     ROLE_CHOICES = (
-        ('leader', 'Leader'),
-        ('co-leader', 'Co-Leader'),
+        ('owner', 'Owner'),
+        ('admin', 'Admin'),
         ('member', 'Member'),
     )
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='memberships')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='team_memberships')
-    role = models.CharField(_('role'), max_length=20, choices=ROLE_CHOICES, default='member')
-    joined_at = models.DateTimeField(_('joined at'), auto_now_add=True)
-    contribution_points = models.PositiveIntegerField(_('contribution points'), default=0)
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='members'
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='team_memberships'
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=ROLE_CHOICES,
+        default='member'
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+    bio = models.TextField(blank=True)
+    is_public = models.BooleanField(default=True)
     
     class Meta:
-        verbose_name = _('team membership')
-        verbose_name_plural = _('team memberships')
         unique_together = ('team', 'user')
-        ordering = ['team', 'role', 'joined_at']
+        ordering = ['role', 'joined_at']
     
     def __str__(self):
-        return f"{self.user.username} in {self.team.name} as {self.get_role_display()}"
-    
-    def promote(self):
-        """Promote the member to the next role level."""
-        if self.role == 'member':
-            self.role = 'co-leader'
-            self.save()
-            return True
-        elif self.role == 'co-leader':
-            # Check if there's already a leader
-            current_leader = self.team.memberships.filter(role='leader').first()
-            if current_leader:
-                current_leader.role = 'co-leader'
-                current_leader.save()
-            
-            self.role = 'leader'
-            self.save()
-            return True
-        return False
-    
-    def demote(self):
-        """Demote the member to the previous role level."""
-        if self.role == 'leader':
-            # Must have another member to take leadership
-            potential_leader = self.team.memberships.exclude(id=self.id).first()
-            if potential_leader:
-                potential_leader.role = 'leader'
-                potential_leader.save()
-                
-                self.role = 'co-leader'
-                self.save()
-                return True
-            return False
-        elif self.role == 'co-leader':
-            self.role = 'member'
-            self.save()
-            return True
-        return False
+        return f"{self.user.username} ({self.get_role_display()}) in {self.team.name}"
 
 
 class TeamInvitation(models.Model):
-    """Invitation to join a team."""
-    
+    """
+    Represents an invitation to join a team
+    """
     STATUS_CHOICES = (
         ('pending', 'Pending'),
         ('accepted', 'Accepted'),
@@ -149,143 +104,240 @@ class TeamInvitation(models.Model):
         ('expired', 'Expired'),
     )
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='invitations')
-    inviter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='sent_team_invitations')
-    invitee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='received_team_invitations')
-    message = models.TextField(_('message'), blank=True)
-    role = models.CharField(_('role'), max_length=20, choices=TeamMembership.ROLE_CHOICES, default='member')
-    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
-    expires_at = models.DateTimeField(_('expires at'))
-    status = models.CharField(_('status'), max_length=20, choices=STATUS_CHOICES, default='pending')
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='invitations'
+    )
+    inviter = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='sent_team_invitations'
+    )
+    invitee = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='received_team_invitations'
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=TeamMember.ROLE_CHOICES,
+        default='member'
+    )
+    message = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='pending'
+    )
+    token = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     
     class Meta:
-        verbose_name = _('team invitation')
-        verbose_name_plural = _('team invitations')
-        unique_together = ('team', 'invitee', 'status')
         ordering = ['-created_at']
+        unique_together = ('team', 'invitee', 'status')
     
     def __str__(self):
         return f"Invitation for {self.invitee.username} to join {self.team.name}"
     
     def save(self, *args, **kwargs):
-        """Set expiration date if not provided."""
+        # Set expiration date if not provided
         if not self.expires_at:
-            # Default expiration is 7 days from creation
             self.expires_at = timezone.now() + timezone.timedelta(days=7)
+        
         super().save(*args, **kwargs)
     
+    @property
+    def is_expired(self):
+        return timezone.now() > self.expires_at
+    
     def accept(self):
-        """Accept the invitation and add the user to the team."""
+        """
+        Accept the invitation and create a team membership
+        """
         if self.status != 'pending':
             return False
         
-        if timezone.now() > self.expires_at:
+        if self.is_expired:
             self.status = 'expired'
-            self.save()
+            self.save(update_fields=['status'])
             return False
         
-        # Add the user to the team
-        success = self.team.add_member(self.invitee, self.role)
-        if success:
-            self.status = 'accepted'
-            self.save()
-            return True
-        return False
+        # Create team membership
+        TeamMember.objects.create(
+            team=self.team,
+            user=self.invitee,
+            role=self.role
+        )
+        
+        self.status = 'accepted'
+        self.save(update_fields=['status'])
+        return True
     
     def decline(self):
-        """Decline the invitation."""
+        """
+        Decline the invitation
+        """
         if self.status != 'pending':
             return False
         
         self.status = 'declined'
-        self.save()
+        self.save(update_fields=['status'])
         return True
-    
-    @property
-    def is_expired(self):
-        """Check if the invitation has expired."""
-        return timezone.now() > self.expires_at
-    
-    def check_expiry(self):
-        """Check and update the status if the invitation has expired."""
-        if self.status == 'pending' and self.is_expired:
-            self.status = 'expired'
-            self.save()
-            return True
-        return False
 
 
-class TeamJoinRequest(models.Model):
-    """Request to join a team."""
-    
+class TeamProject(models.Model):
+    """
+    Represents a project associated with a team
+    """
     STATUS_CHOICES = (
-        ('pending', 'Pending'),
-        ('accepted', 'Accepted'),
-        ('declined', 'Declined'),
-        ('expired', 'Expired'),
+        ('planning', 'Planning'),
+        ('in_progress', 'In Progress'),
+        ('completed', 'Completed'),
+        ('on_hold', 'On Hold'),
+        ('cancelled', 'Cancelled'),
     )
     
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    team = models.ForeignKey(Team, on_delete=models.CASCADE, related_name='join_requests')
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='team_join_requests')
-    message = models.TextField(_('message'), blank=True)
-    created_at = models.DateTimeField(_('created at'), auto_now_add=True)
-    expires_at = models.DateTimeField(_('expires at'))
-    status = models.CharField(_('status'), max_length=20, choices=STATUS_CHOICES, default='pending')
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='projects'
+    )
+    name = models.CharField(max_length=100)
+    slug = models.SlugField(max_length=120, blank=True)
+    description = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='planning'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='created_team_projects',
+        null=True
+    )
+    start_date = models.DateField(blank=True, null=True)
+    end_date = models.DateField(blank=True, null=True)
+    is_public = models.BooleanField(default=True)
+    repository_url = models.URLField(blank=True, null=True)
+    demo_url = models.URLField(blank=True, null=True)
     
     class Meta:
-        verbose_name = _('team join request')
-        verbose_name_plural = _('team join requests')
-        unique_together = ('team', 'user', 'status')
-        ordering = ['-created_at']
+        ordering = ['-updated_at']
+        unique_together = ('team', 'slug')
     
     def __str__(self):
-        return f"Request from {self.user.username} to join {self.team.name}"
+        return f"{self.name} ({self.team.name})"
     
     def save(self, *args, **kwargs):
-        """Set expiration date if not provided."""
-        if not self.expires_at:
-            # Default expiration is 7 days from creation
-            self.expires_at = timezone.now() + timezone.timedelta(days=7)
+        # Generate a slug if one doesn't exist
+        if not self.slug:
+            base_slug = slugify(self.name)
+            slug = base_slug
+            counter = 1
+            
+            # Make sure the slug is unique within the team
+            while TeamProject.objects.filter(team=self.team, slug=slug).exists():
+                slug = f"{base_slug}-{counter}"
+                counter += 1
+            
+            self.slug = slug
+        
         super().save(*args, **kwargs)
+
+
+class TeamTask(models.Model):
+    """
+    Represents a task within a team project
+    """
+    PRIORITY_CHOICES = (
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('urgent', 'Urgent'),
+    )
     
-    def accept(self):
-        """Accept the request and add the user to the team."""
-        if self.status != 'pending':
-            return False
-        
-        if timezone.now() > self.expires_at:
-            self.status = 'expired'
-            self.save()
-            return False
-        
-        # Add the user to the team
-        success = self.team.add_member(self.user)
-        if success:
-            self.status = 'accepted'
-            self.save()
-            return True
-        return False
+    STATUS_CHOICES = (
+        ('todo', 'To Do'),
+        ('in_progress', 'In Progress'),
+        ('review', 'In Review'),
+        ('done', 'Done'),
+    )
     
-    def decline(self):
-        """Decline the request."""
-        if self.status != 'pending':
-            return False
-        
-        self.status = 'declined'
-        self.save()
-        return True
+    project = models.ForeignKey(
+        TeamProject,
+        on_delete=models.CASCADE,
+        related_name='tasks'
+    )
+    title = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    priority = models.CharField(
+        max_length=20,
+        choices=PRIORITY_CHOICES,
+        default='medium'
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=STATUS_CHOICES,
+        default='todo'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='created_tasks',
+        null=True
+    )
+    assigned_to = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='assigned_tasks',
+        blank=True,
+        null=True
+    )
+    due_date = models.DateField(blank=True, null=True)
+    estimated_hours = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        blank=True,
+        null=True
+    )
     
-    @property
-    def is_expired(self):
-        """Check if the request has expired."""
-        return timezone.now() > self.expires_at
+    class Meta:
+        ordering = ['priority', 'due_date', 'created_at']
     
-    def check_expiry(self):
-        """Check and update the status if the request has expired."""
-        if self.status == 'pending' and self.is_expired:
-            self.status = 'expired'
-            self.save()
-            return True
-        return False
+    def __str__(self):
+        return self.title
+
+
+class TeamAnnouncement(models.Model):
+    """
+    Represents an announcement for a team
+    """
+    team = models.ForeignKey(
+        Team,
+        on_delete=models.CASCADE,
+        related_name='announcements'
+    )
+    title = models.CharField(max_length=200)
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        related_name='created_announcements',
+        null=True
+    )
+    is_pinned = models.BooleanField(default=False)
+    
+    class Meta:
+        ordering = ['-is_pinned', '-created_at']
+    
+    def __str__(self):
+        return f"{self.title} ({self.team.name})"
