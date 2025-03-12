@@ -162,8 +162,7 @@ class Submission(models.Model):
                 self.points_awarded = self.challenge.get_points_for_user(self.user, hint_count)
                 
                 # Update user points
-                self.user.points += self.points_awarded
-                self.user.save(update_fields=['points'])
+                self.user.profile.update(points=models.F('points') + self.points_awarded)
         
         super().save(*args, **kwargs)
 
