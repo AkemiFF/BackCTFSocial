@@ -1,4 +1,5 @@
 # accounts/serializers.py
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from rest_framework import serializers
 
 from .models import User, UserFollowing, UserProfile, UserSession
@@ -69,3 +70,18 @@ class UserFollowingSerializer(serializers.ModelSerializer):
         model = UserFollowing
         fields = ['id', 'following_user', 'following_user_details', 'created_at']
         read_only_fields = ['id', 'user', 'created_at']
+        
+class InitiateRegistrationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+class CompleteRegistrationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+    code = serializers.CharField(max_length=6)
+    username = serializers.CharField(
+        max_length=150,
+        validators=[UnicodeUsernameValidator()]
+    )
+    password = serializers.CharField(
+        write_only=True,
+        style={'input_type': 'password'}
+    )

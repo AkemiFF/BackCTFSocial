@@ -172,3 +172,20 @@ class UserFollowing(models.Model):
     
     def __str__(self):
         return f"{self.user.username} follows {self.following_user.username}"
+    
+class RegistrationRequest(models.Model):
+    email = models.EmailField(unique=True)
+    code = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"{self.email}: {self.code}"
+
+    class Meta:
+        verbose_name = "Registration Request"
+        verbose_name_plural = "Registration Requests"
+
+    
+    def is_expired(self):
+        expiration_time = self.created_at + timezone.timedelta(minutes=15)
+        return timezone.now() > expiration_time
