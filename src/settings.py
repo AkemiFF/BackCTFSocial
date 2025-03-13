@@ -10,10 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import datetime
 import os
 from datetime import timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -152,7 +156,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework settings
 # src/settings.py (ajouts)
-import datetime
 
 # Django REST Framework
 REST_FRAMEWORK = {
@@ -297,8 +300,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Use environment variables
-EMAIL_HOST_PASSWORD = 'your-password'  # Use environment variables
+EMAIL_HOST_USER = 'mirado.akemi@gmail.com'  # Use environment variables
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Use environment variables
 
 # Social Authentication
 AUTHENTICATION_BACKENDS = (
