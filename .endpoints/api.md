@@ -54,8 +54,8 @@ Pour utiliser l'API, les clients doivent d'abord s'authentifier:
 ```plaintext
 POST /api/auth/token/
 {
-    "username": "user@example.com",
-    "password": "password"
+    "username": "mirado.akemi@gmail.com",
+    "password": "akemi123"
 }
 ```
 

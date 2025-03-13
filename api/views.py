@@ -1,5 +1,7 @@
 # api/views.py
+from accounts.models import *
 from django.conf import settings
+from django.contrib.auth import authenticate
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -8,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.views import (TokenObtainPairView,
                                             TokenRefreshView)
+from social.models import Post
 
 
 class ApiRootView(APIView):
@@ -39,7 +42,11 @@ class CustomTokenObtainPairView(TokenObtainPairView):
         
         if response.status_code == status.HTTP_200_OK:
             # Add user info to response
-            user = request.user
+            email = request.data.get('email')
+            password = request.data.get('password')
+            user = authenticate(email=email, password=password)
+            if user is None:
+                return Response({"detail": "Invalid credentials"}, status=status.HTTP_401_UNAUTHORIZED)
             response.data['user_id'] = user.id
             response.data['username'] = user.username
             response.data['email'] = user.email
@@ -61,6 +68,10 @@ def api_user_info(request):
     Return information about the authenticated user.
     """
     user = request.user
+    followers_count = UserFollowing.objects.filter(following_user=user).count()
+    following_count = UserFollowing.objects.filter(user=user).count()
+    post_count = Post.objects.filter(user=user).count()
+    
     data = {
         'id': user.id,
         'username': user.username,
@@ -70,25 +81,9 @@ def api_user_info(request):
         'is_active': user.is_active,
         'date_joined': user.date_joined,
         'last_login': user.last_login,
+        'followers_count': followers_count,
+        'following_count': following_count,
+        'post_count': post_count,
     }
-    
-    # Add API-specific information if available
-    try:
-        from accounts.models import ApiKey, ApiScope
-        api_keys = ApiKey.objects.filter(user=user, is_active=True)
-        api_scopes = ApiScope.objects.filter(user=user, is_active=True)
-        
-        data['api_keys'] = [
-            {
-                'key_id': key.id,
-                'name': key.name,
-                'created_at': key.created_at,
-                'last_used': key.last_used,
-            } for key in api_keys
-        ]
-        
-        data['api_scopes'] = [scope.scope for scope in api_scopes]
-    except:
-        pass
     
     return Response(data)
