@@ -1,28 +1,30 @@
 # notifications/serializers.py
-from rest_framework import serializers
-
 from accounts.serializers import UserSerializer
+from rest_framework import serializers
 
 from .models import Notification, NotificationPreference
 
 
 class NotificationSerializer(serializers.ModelSerializer):
-    sender_details = UserSerializer(source='sender', read_only=True)
-    recipient_details = UserSerializer(source='recipient', read_only=True)
+    user_details = UserSerializer(source='user', read_only=True)  # Remplacer 'recipient' par 'user'
     
     class Meta:
         model = Notification
-        fields = ['id', 'recipient', 'recipient_details', 'sender', 'sender_details', 
-                  'notification_type', 'content', 'object_id', 'content_type', 
-                  'is_read', 'created_at', 'updated_at', 'url', 'image']
-        read_only_fields = ['id', 'created_at', 'updated_at']
-
+        fields = [
+            'id', 'user', 'user_details', 'title', 'message', 
+            'notification_type', 'priority', 'is_read', 'created_at', 
+            'read_at', 'url', 'related_achievement', 'related_challenge'  # Ajouter les champs réels
+        ]
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):
     user_details = UserSerializer(source='user', read_only=True)
     
     class Meta:
         model = NotificationPreference
-        fields = ['id', 'user', 'user_details', 'notification_type', 'email_enabled', 
-                  'push_enabled', 'in_app_enabled', 'created_at', 'updated_at']
-        read_only_fields = ['id', 'created_at', 'updated_at']
+        fields = [
+            'id', 'user', 'user_details', 'email_notifications', 
+            'push_notifications', 'achievement_notifications', 
+            'challenge_notifications', 'course_notifications', 
+            'event_notifications', 'team_notifications', 
+            'social_notifications', 'system_notifications'
+        ]

@@ -7,23 +7,23 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 
 from .models import Notification, NotificationPreference
-from .permissions import IsRecipientOrAdmin, IsUserOrAdmin
+from .permissions import IsUserOrAdmin
 from .serializers import (NotificationPreferenceSerializer,
                           NotificationSerializer)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationSerializer
-    permission_classes = [permissions.IsAuthenticated, IsRecipientOrAdmin]
+    permission_classes = [permissions.IsAuthenticated, IsUserOrAdmin]
     filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['recipient', 'notification_type', 'is_read']
+    filterset_fields = ['user', 'notification_type', 'is_read']
     ordering_fields = ['created_at', 'updated_at']
     
     def get_queryset(self):
         if self.request.user.is_staff or self.request.user.role == 'administrator':
             return Notification.objects.all()
         
-        return Notification.objects.filter(recipient=self.request.user)
+        return Notification.objects.filter(user=self.request.user)
     
     @action(detail=True, methods=['post'])
     def mark_as_read(self, request, pk=None):
@@ -56,7 +56,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         # Get unread notifications for the current user
         notifications = Notification.objects.filter(
-            recipient=request.user,
+            user=request.user,
             is_read=False
         )
         
@@ -78,7 +78,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         # Get unread notifications for the current user
         count = Notification.objects.filter(
-            recipient=request.user,
+            user=request.user,
             is_read=False
         ).count()
         
@@ -89,7 +89,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         Return a list of the current user's notifications.
         """
-        notifications = Notification.objects.filter(recipient=request.user)
+        notifications = Notification.objects.filter(user=request.user)
         
         # Filter by is_read if provided
         is_read = request.query_params.get('is_read')
@@ -119,7 +119,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
         """
         # Get read notifications for the current user
         notifications = Notification.objects.filter(
-            recipient=request.user,
+            user=request.user,
             is_read=True
         )
         
@@ -134,109 +134,68 @@ class NotificationViewSet(viewsets.ModelViewSet):
         
         return Response({"detail": f"Deleted {count} read notifications."}, status=status.HTTP_200_OK)
 
-
 class NotificationPreferenceViewSet(viewsets.ModelViewSet):
     serializer_class = NotificationPreferenceSerializer
     permission_classes = [permissions.IsAuthenticated, IsUserOrAdmin]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['user', 'notification_type']
+    filterset_fields = ['user']  # Retiré 'notification_type' (n'existe pas dans le modèle)
     
     def get_queryset(self):
         if self.request.user.is_staff or self.request.user.role == 'administrator':
             return NotificationPreference.objects.all()
-        
         return NotificationPreference.objects.filter(user=self.request.user)
     
     @action(detail=False, methods=['get'])
     def my_preferences(self, request):
         """
-        Return a list of the current user's notification preferences.
+        Return the current user's notification preferences (un seul objet).
         """
-        preferences = NotificationPreference.objects.filter(user=request.user)
-        
-        # Filter by notification_type if provided
-        notification_type = request.query_params.get('notification_type')
-        if notification_type:
-            preferences = preferences.filter(notification_type=notification_type)
-        
-        serializer = self.get_serializer(preferences, many=True)
+        preference = NotificationPreference.objects.get(user=request.user)
+        serializer = self.get_serializer(preference)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def update_preferences(self, request):
         """
-        Update multiple notification preferences at once.
+        Update notification preferences for the current user.
         """
-        preferences_data = request.data.get('preferences', [])
-        if not preferences_data or not isinstance(preferences_data, list):
-            return Response(
-                {"detail": "Invalid data format. Expected a list of preferences."},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        # Récupère l'instance existante (pas de création multiple)
+        preference = NotificationPreference.objects.get(user=request.user)
         
-        updated_preferences = []
+        # Met à jour les champs booléens en fonction des données reçues
+        for field in request.data:
+            if hasattr(preference, field):
+                setattr(preference, field, request.data[field])
         
-        for pref_data in preferences_data:
-            notification_type = pref_data.get('notification_type')
-            if not notification_type:
-                continue
-            
-            # Get or create the preference
-            preference, created = NotificationPreference.objects.get_or_create(
-                user=request.user,
-                notification_type=notification_type,
-                defaults={
-                    'email_enabled': pref_data.get('email_enabled', True),
-                    'push_enabled': pref_data.get('push_enabled', True),
-                    'in_app_enabled': pref_data.get('in_app_enabled', True)
-                }
-            )
-            
-            # Update if not created
-            if not created:
-                if 'email_enabled' in pref_data:
-                    preference.email_enabled = pref_data['email_enabled']
-                if 'push_enabled' in pref_data:
-                    preference.push_enabled = pref_data['push_enabled']
-                if 'in_app_enabled' in pref_data:
-                    preference.in_app_enabled = pref_data['in_app_enabled']
-                
-                preference.save()
-            
-            updated_preferences.append(preference)
-        
-        serializer = self.get_serializer(updated_preferences, many=True)
+        preference.save()
+        serializer = self.get_serializer(preference)
         return Response(serializer.data)
     
     @action(detail=False, methods=['post'])
     def toggle_all(self, request):
         """
-        Toggle all notification preferences of a specific type.
+        Toggle all notification types for a specific channel (email/push).
         """
-        channel = request.data.get('channel')  # 'email', 'push', or 'in_app'
+        channel = request.data.get('channel')  # 'email' ou 'push'
         enabled = request.data.get('enabled', True)
         
-        if channel not in ['email', 'push', 'in_app']:
+        if channel not in ['email', 'push']:
             return Response(
-                {"detail": "Invalid channel. Must be 'email', 'push', or 'in_app'."},
+                {"detail": "Invalid channel. Must be 'email' or 'push'."},
                 status=status.HTTP_400_BAD_REQUEST
             )
         
-        # Get all preferences for the current user
-        preferences = NotificationPreference.objects.filter(user=request.user)
+        preference = NotificationPreference.objects.get(user=request.user)
         
-        # Filter by notification_type if provided
-        notification_type = request.data.get('notification_type')
-        if notification_type:
-            preferences = preferences.filter(notification_type=notification_type)
+        # Liste des champs à mettre à jour selon le canal
+        fields_to_update = {
+            'email': ['email_notifications'],
+            'push': ['push_notifications']
+        }.get(channel, [])
         
-        # Update all preferences
-        if channel == 'email':
-            preferences.update(email_enabled=enabled, updated_at=timezone.now())
-        elif channel == 'push':
-            preferences.update(push_enabled=enabled, updated_at=timezone.now())
-        elif channel == 'in_app':
-            preferences.update(in_app_enabled=enabled, updated_at=timezone.now())
+        for field in fields_to_update:
+            setattr(preference, field, enabled)
         
-        serializer = self.get_serializer(preferences, many=True)
+        preference.save()
+        serializer = self.get_serializer(preference)
         return Response(serializer.data)

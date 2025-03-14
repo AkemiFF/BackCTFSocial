@@ -2,7 +2,7 @@
 from rest_framework import permissions
 
 
-class IsRecipientOrAdmin(permissions.BasePermission):
+class IsUserOrAdmin(permissions.BasePermission):
     """
     Custom permission to only allow recipients of a notification to view or edit it.
     """

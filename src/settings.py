@@ -52,7 +52,7 @@ INSTALLED_APPS = [
     'django_filters',
     'djoser',
     'social_django',
-    'markdownx',
+    # 'markdownx',
     'taggit',
     'channels',
     'django_celery_beat',
