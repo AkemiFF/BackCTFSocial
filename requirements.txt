@@ -2,14 +2,13 @@ djangorestframework
 django-cors-headers
 django-filter
 djoser
-social-auth-app-django==5.4.3
+social-auth-app-django
 django-markdownify
 django-taggit
 channels
 django-celery-beat
 django-celery-results
 django-debug-toolbar
-boto3
 django-storages
 django-ckeditor
 django-crispy-forms

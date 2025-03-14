@@ -6,12 +6,19 @@ from django.urls import include, path
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    # Nouvelle structure centralisée pour l'API
+    path('api/', include('api.urls')),
+    # Conserver les anciens chemins pour la compatibilité
     path('api/accounts/', include('accounts.urls')),
     path('api/learning/', include('learning.urls')),
     path('api/challenges/', include('challenges.urls')),
     path('api/core/', include('core.urls')),
-    path('api/social/', include('social.urls')),  # Ajout des URLs social
-    # Autres URLs d'API
+    path('api/social/', include('social.urls')),
+    path('api/messaging/', include('messaging.urls')),
+    path('api/teams/', include('teams.urls')),
+    path('api/gamification/', include('gamification.urls')),
+    path('api/notifications/', include('notifications.urls')),
+    # Authentification DRF
     path('api-auth/', include('rest_framework.urls')),
 ]
 

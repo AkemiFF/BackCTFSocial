@@ -10,10 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
+import datetime
 import os
 from datetime import timedelta
 from pathlib import Path
 
+from dotenv import load_dotenv
+
+load_dotenv()
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
@@ -48,7 +52,7 @@ INSTALLED_APPS = [
     'django_filters',
     'djoser',
     'social_django',
-    'markdownx',
+    # 'markdownx',
     'taggit',
     'channels',
     'django_celery_beat',
@@ -151,27 +155,86 @@ USE_TZ = True
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # REST Framework settings
+# src/settings.py (ajouts)
+
+# Django REST Framework
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+        'api.authentication.CustomJWTAuthentication',
+        'api.authentication.ApiKeyAuthentication',
         'rest_framework.authentication.SessionAuthentication',
-        'rest_framework.authentication.TokenAuthentication',
     ),
-    'DEFAULT_PERMISSION_CLASSES': [
+    'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
+    ),
+    'DEFAULT_PAGINATION_CLASS': 'api.pagination.StandardResultsSetPagination',
+    'DEFAULT_THROTTLE_CLASSES': [
+        'api.throttling.BurstRateThrottle',
+        'api.throttling.SustainedRateThrottle',
+        'api.throttling.AnonymousRateThrottle',
     ],
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
+    'DEFAULT_THROTTLE_RATES': {
+        'burst': '60/min',
+        'sustained': '1000/day',
+        'anon': '20/min',
+    },
+    'DEFAULT_RENDERER_CLASSES': [
+        'rest_framework.renderers.JSONRenderer',
+        'api.renderers.AdminBrowsableAPIRenderer',
+    ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+    'DEFAULT_FILTER_BACKENDS': [
+        'django_filters.rest_framework.DjangoFilterBackend',
+        'rest_framework.filters.SearchFilter',
+        'rest_framework.filters.OrderingFilter',
+    ],
+    'EXCEPTION_HANDLER': 'api.utils.custom_exception_handler',
 }
 
-# Simple JWT settings
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# drf-spectacular settings
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'Hackitech API',
+    'DESCRIPTION': 'API documentation for the Hackitech platform',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
+    'SCHEMA_PATH_PREFIX': r'/api/',
+    'COMPONENT_SPLIT_REQUEST': True,
+    'SWAGGER_UI_SETTINGS': {
+        'deepLinking': True,
+        'persistAuthorization': True,
+        'displayOperationId': True,
+    },
+    'REDOC_UI_SETTINGS': {
+        'hideHostname': False,
+    },
+    'TAGS': [
+        {'name': 'accounts', 'description': 'User accounts and authentication'},
+        {'name': 'learning', 'description': 'Learning resources and courses'},
+        {'name': 'challenges', 'description': 'Coding challenges and competitions'},
+        {'name': 'core', 'description': 'Core platform functionality'},
+        {'name': 'social', 'description': 'Social networking features'},
+        {'name': 'messaging', 'description': 'User messaging and communication'},
+        {'name': 'teams', 'description': 'Team collaboration features'},
+        {'name': 'gamification', 'description': 'Gamification features like badges and points'},
+        {'name': 'notifications', 'description': 'User notifications'},
+    ],
+    'SECURITY': [
+        {
+            'Bearer': []
+        },
+        {
+            'ApiKeyAuth': []
+        }
+    ],
+}
+
 # Static files (CSS, JavaScript, Images)
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
@@ -224,8 +287,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'your-email@gmail.com'  # Use environment variables
-EMAIL_HOST_PASSWORD = 'your-password'  # Use environment variables
+EMAIL_HOST_USER = 'mirado.akemi@gmail.com'  # Use environment variables
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Use environment variables
 
 # Social Authentication
 AUTHENTICATION_BACKENDS = (

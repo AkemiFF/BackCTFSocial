@@ -32,6 +32,7 @@ class Notification(models.Model):
     notification_type = models.CharField(_('notification type'), max_length=20, choices=NOTIFICATION_TYPES)
     priority = models.CharField(_('priority'), max_length=10, choices=PRIORITY_LEVELS, default='medium')
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('updated at'), default=timezone.now)
     is_read = models.BooleanField(_('is read'), default=False)
     read_at = models.DateTimeField(_('read at'), null=True, blank=True)
     url = models.URLField(_('URL'), blank=True)

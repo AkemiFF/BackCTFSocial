@@ -1,4 +1,5 @@
 # accounts/urls.py
+import accounts.views as views
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
