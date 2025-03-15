@@ -8,10 +8,31 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import (TokenObtainPairView,
                                             TokenRefreshView)
 from social.models import Post
 
+
+class AdminTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Valider le refresh token spécifique aux administrateurs
+            refresh = RefreshToken(refresh_token)
+            user = refresh.payload.get('user')
+            print(user)
+            if user.get('role') != 'admin': 
+                return Response({"error": "Invalid token for admin"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Générer un nouveau token d'accès
+            access_token = str(refresh.access_token)
+            return Response({"access": access_token}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 class ApiRootView(APIView):
     """
