@@ -72,10 +72,13 @@ def api_user_info(request):
     following_count = UserFollowing.objects.filter(user=user).count()
     post_count = Post.objects.filter(user=user).count()
     
+    avatar = request.build_absolute_uri(user.photo.url) if user.photo else request.build_absolute_uri(settings.DEFAULT_AVATAR_URL)    
     data = {
         'id': user.id,
         'username': user.username,
+        'name': user.profile.display_name,
         'email': user.email,
+        'avatar': avatar,
         'role': user.role,
         'is_staff': user.is_staff,
         'is_active': user.is_active,
@@ -85,5 +88,4 @@ def api_user_info(request):
         'following_count': following_count,
         'post_count': post_count,
     }
-    
     return Response(data)
