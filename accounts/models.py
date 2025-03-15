@@ -51,6 +51,7 @@ class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     email = models.EmailField(_('email address'), unique=True)
     username = models.CharField(_('username'), max_length=150, unique=True)
+    name = models.CharField(_('name'), max_length=150, null=True, blank=True)
     bio = models.TextField(_('biography'), blank=True)
     photo = models.ImageField(_('profile photo'), upload_to='profile_photos/', blank=True, null=True)
     points = models.PositiveIntegerField(_('points'), default=0)
@@ -61,6 +62,7 @@ class User(AbstractUser):
     
     # Social links
     github_url = models.URLField(_('GitHub URL'), blank=True)
+    gitlab_url = models.URLField(_('GitLab URL'), blank=True)
     linkedin_url = models.URLField(_('LinkedIn URL'), blank=True)
     twitter_url = models.URLField(_('Twitter URL'), blank=True)
     website_url = models.URLField(_('Website URL'), blank=True)
@@ -189,3 +191,22 @@ class RegistrationRequest(models.Model):
     def is_expired(self):
         expiration_time = self.created_at + timezone.timedelta(minutes=15)
         return timezone.now() > expiration_time
+    
+   
+class UserProjects(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='user_projects')
+    project_name = models.CharField(max_length=255)
+    description = models.TextField(blank=True, null=True)
+    link = models.URLField(blank=True, null=True)
+    language = models.CharField(max_length=100,blank=True, null=True)
+    stars = models.IntegerField(default=0,blank=True, null=True)
+    forks = models.IntegerField(default=0,blank=True, null=True)
+    image = models.ImageField(upload_to='project_images/', blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    def __str__(self):
+        return f"{self.project_name} - {self.user.username}"
+    
+    class Meta:
+        ordering = ['-created_at']
