@@ -33,7 +33,6 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
 
 INSTALLED_APPS = [
@@ -337,3 +336,4 @@ X_FRAME_OPTIONS = 'DENY'
 
 # Debug Toolbar
 INTERNAL_IPS = ['127.0.0.1']
+DEFAULT_AVATAR_URL = f'{MEDIA_URL}image.png'
