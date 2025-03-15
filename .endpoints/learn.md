@@ -37,7 +37,7 @@
 
 - `GET /api/user/profile/` - Profil de l'utilisateur connecté
 
-### Données de Référence
+## Données de Référence
 
 - `GET /api/admin/reference-data/` - Récupérer les données de référence pour les formulaires
 
