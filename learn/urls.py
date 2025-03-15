@@ -16,6 +16,7 @@ admin_router.register(r'content-items', AdminContentItemViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),
+    path('admin/', include(admin_router.urls)), 
     path('user/points/', UserPointsView.as_view(), name='user-points'),
     path('admin/reference-data/', AdminReferenceDataView.as_view(), name='admin-reference-data'),
 ]
