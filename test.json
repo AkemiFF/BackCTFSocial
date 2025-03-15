@@ -1,0 +1,68 @@
+{
+    "name": "Alex Durand",
+    "bio": "Développeur full-stack & ethical hacker | Contributeur open source | Passionné de cybersécurité et d'IA | Toujours à la recherche de nouveaux défis techniques",
+    "location": "Paris, France",
+    "website": "https://alexdurand.dev",
+    "avatar": "/placeholder.svg?height=150&width=150",
+    "coverImage": "/placeholder.svg?height=400&width=1200",
+    "github": "github.com/0xalexcode",
+    "gitlab": "gitlab.com/0xalexcode",
+    "twitter": "",
+    "linkedin": "",
+    "skills": [
+        {
+            "id": "a091e0dd-2a28-438c-baf0-17a72fa3c404",
+            "name": "JavaScript",
+            "slug": "javascript",
+            "description": "Langage de script orienté objet principalement utilisé côté client",
+            "skill_type": "language",
+            "icon": "fa-brands fa-js",
+            "parent": null,
+            "parent_name": null,
+            "related_skills": [],
+            "related_skills_details": [],
+            "level": 50,
+            "user_level": 50
+        }
+    ],
+    "projects": [
+        {
+            "id": 1,
+            "name": "A",
+            "description": "Système d'authentification multi-facteurs open source avec support pour WebAuthn et FIDO2",
+            "stars": 342,
+            "forks": 87,
+            "language": "TypeScript",
+            "link": "https://github.com/0xalexcode/secure-auth",
+            "image": "/placeholder.svg?height=200&width=400"
+        },
+        {
+            "id": 2,
+            "name": "B",
+            "description": "Outil avancé de scan de vulnérabilités réseau avec reporting automatisé",
+            "stars": 256,
+            "forks": 62,
+            "language": "Python",
+            "link": "https://github.com/0xalexcode/netscanpro",
+            "image": "/placeholder.svg?height=200&width=400"
+        },
+        {
+            "id": 3,
+            "name": "C",
+            "description": "Framework de sécurité pour applications blockchain et smart contracts",
+            "stars": 189,
+            "forks": 45,
+            "language": "Solidity/Rust",
+            "link": "https://github.com/0xalexcode/blockguard",
+            "image": "/placeholder.svg?height=200&width=400"
+        }
+    ],
+    "education": [],
+    "experience": [],
+    "profile": {
+        "skills": [
+            "a091e0dd-2a28-438c-baf0-17a72fa3c404"
+        ],
+        "display_name": "Alex Durand"
+    }
+}
