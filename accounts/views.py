@@ -1,6 +1,7 @@
-# accounts/views.py
+import re
 import secrets
 import string
+from collections import defaultdict
 
 from django.conf import settings
 from django.contrib.auth import get_user_model
@@ -9,17 +10,117 @@ from django.db import IntegrityError
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
-# views.py
 from rest_framework.decorators import action, api_view, permission_classes
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from .models import (RegistrationRequest, User, UserFollowing, UserProfile,
-                     UserSession)
+                     UserProjects, UserSession)
 from .permissions import IsOwnerOrReadOnly, IsUserOrAdmin
-from .serializers import (CompleteRegistrationSerializer,
-                          InitiateRegistrationSerializer,
-                          UserFollowingSerializer, UserProfileSerializer,
-                          UserSerializer, UserSessionSerializer)
+from .serializers import *
+
+
+class UserProfileDetailsViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all()
+    serializer_class = UserDetailsSerializer  
+    permission_classes = [IsAuthenticated]
+    http_method_names = ['get', 'patch', 'delete'] 
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        return User.objects.prefetch_related('projects').filter(id=self.request.user.id)
+
+    def get_object(self):
+        return self.request.user
+
+    def convert_querydict(self, querydict):
+        """
+        Convertit le QueryDict en dictionnaire Python standard.
+        Pour chaque clé, si plusieurs valeurs existent, on garde la liste,
+        sinon on conserve la valeur unique.
+        """
+        data = {}
+        for key in querydict.keys():
+            values = querydict.getlist(key)
+            data[key] = values if len(values) > 1 else values[0]
+        return data
+
+    def parse_nested_field(self, data, prefix):
+        """
+        Transforme les clés du type prefix[field] et prefix[field][index]
+        en un dictionnaire imbriqué.
+        Exemple pour profile :
+            "profile[display_name]": "Alex Durand"
+            "profile[skills][0]": "bf505b49-8361-424d-ac1f-11424ed387b1"
+            "profile[skills][1]": "9ca97f75-7133-46cf-89bb-ee3671954415"
+        deviendra :
+            "display_name": "Alex Durand",
+            "skills": ["bf505b49-8361-424d-ac1f-11424ed387b1", "9ca97f75-7133-46cf-89bb-ee3671954415"]
+        """
+        nested = {}
+        # Récupère les clés qui commencent par prefix[
+        keys_to_remove = [key for key in data.keys() if key.startswith(prefix + '[')]
+        # Pattern pour les champs en liste : profile[skills][0]
+        list_pattern = re.compile(r'^' + re.escape(prefix) + r'\[([^\]]+)\]\[(\d+)\]$')
+        # Pattern pour les champs simples : profile[display_name]
+        field_pattern = re.compile(r'^' + re.escape(prefix) + r'\[([^\]]+)\]$')
+        for key in keys_to_remove:
+            value = data.pop(key)
+            list_match = list_pattern.match(key)
+            if list_match:
+                field_name = list_match.group(1)
+                index = int(list_match.group(2))
+                if field_name not in nested:
+                    nested[field_name] = {}
+                nested[field_name][index] = value
+            else:
+                field_match = field_pattern.match(key)
+                if field_match:
+                    field_name = field_match.group(1)
+                    nested[field_name] = value
+        # Convertir les dictionnaires à clés numériques en liste ordonnée
+        for field_name, val in nested.items():
+            if isinstance(val, dict) and all(isinstance(k, int) for k in val.keys()):
+                nested[field_name] = [val[k] for k in sorted(val.keys())]
+        return nested
+
+    def parse_nested_projects(self, data):
+        """
+        Transforme les clés du type user_projects[0][champ] en une liste de dictionnaires.
+        """
+        projects = defaultdict(dict)
+        pattern = re.compile(r'^user_projects\[(\d+)\]\[(.+)\]$')
+        for key, value in data.items():
+            match = pattern.match(key)
+            if match:
+                index = int(match.group(1))
+                field = match.group(2)
+                projects[index][field] = value
+        return list(projects.values())
+
+    def update(self, request, *args, **kwargs):
+        # Convertir le QueryDict en dictionnaire Python standard
+        data = self.convert_querydict(request.data)
+        
+        # Transformer les clés imbriquées pour "profile" (y compris skills)
+        if any(key.startswith('profile[') for key in data.keys()):
+            data['profile'] = self.parse_nested_field(data, 'profile')
+        
+        # Transformer les clés imbriquées pour "user_projects" en liste de dictionnaires
+        if any(key.startswith('user_projects[') for key in data.keys()):
+            data['user_projects'] = self.parse_nested_projects(data)
+            print("user_projects transformées:", data['user_projects'])
+        
+        print("Données transformées :", data)
+        
+        serializer = self.get_serializer(
+            self.get_object(), data=data, partial=True, context={'request': request}
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
 
 
 class UserViewSet(viewsets.ModelViewSet):
