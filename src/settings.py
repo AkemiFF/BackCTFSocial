@@ -66,6 +66,7 @@ INSTALLED_APPS = [
     'learning',
     'challenges',
     'social',
+    'learn',
     'messaging',
     'teams',
     'gamification',
