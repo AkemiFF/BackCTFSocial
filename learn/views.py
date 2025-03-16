@@ -4,6 +4,7 @@ from accounts.models import *
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
+from django.utils.text import slugify
 from learn.models import (Certification, ContentItem, Course, Module,
                           ModuleCompletion, PointsTransaction, QuizAnswer,
                           QuizAttempt, QuizOption, QuizQuestion, Tag,
@@ -11,7 +12,7 @@ from learn.models import (Certification, ContentItem, Course, Module,
 from rest_framework import filters, generics, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -25,14 +26,12 @@ from .serializers import (CertificationSerializer, CourseDetailSerializer,
                           UserProgressSerializer)
 from .utils import calculate_user_level, update_course_progress
 
-# Dans learn/admin_api.py, ajoutez:
-
 
 class AdminReferenceDataView(APIView):
     """
     API endpoint pour récupérer les données de référence pour les formulaires d'administration
     """
-    permission_classes = [IsAdminUser]
+    permission_classes = [AllowAny]
     
     def get(self, request):
         # Récupérer les cours pour le formulaire d'ajout de module
@@ -80,7 +79,14 @@ class AdminCourseViewSet(viewsets.ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
+        title = serializer.validated_data.get('title')
+        slug = slugify(title)
+        unique_slug = slug
+        num = 1
+        while Course.objects.filter(slug=unique_slug).exists():
+            unique_slug = f'{slug}-{num}'
+            num += 1
+        serializer.validated_data['slug'] = unique_slug
         try:
             with transaction.atomic():
                 course = serializer.save()
