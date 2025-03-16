@@ -1,8 +1,12 @@
+import json
+
 from django.core.files.uploadedfile import InMemoryUploadedFile
+from django.utils.text import slugify
 from rest_framework import serializers
 
-from .models import (ContentItem, Course, CourseTag, FileContent, ImageContent,
-                     LinkContent, Module, Tag, TextContent, VideoContent)
+from .models import ContentItem  # Assurez-vous d'importer les modèles
+from .models import (Course, CourseTag, FileContent, ImageContent, LinkContent,
+                     Module, Tag, TextContent, VideoContent)
 
 
 class CourseCreateSerializer(serializers.ModelSerializer):
@@ -18,19 +22,44 @@ class CourseCreateSerializer(serializers.ModelSerializer):
             'title', 'description', 'level', 'category', 'duration',
             'prerequisites', 'instructor', 'image', 'tags'
         ]
-    
+
     def create(self, validated_data):
         tags_data = validated_data.pop('tags', [])
-        
-        # Créer le cours
+        title = validated_data.get('title')
+
+        # Générer un slug unique basé sur le title
+        slug = slugify(title)
+        unique_slug = slug
+        counter = 1
+        while Course.objects.filter(slug=unique_slug).exists():
+            unique_slug = f"{slug}-{counter}"
+            counter += 1
+
+        validated_data['slug'] = unique_slug
+        course_tags = []
+
+        # Créer le cours avec le slug unique
         course = Course.objects.create(**validated_data)
-        
-        # Ajouter les tags
+        if tags_data and isinstance(tags_data[0], str):
+            try:
+                tags_data = json.loads(tags_data[0])  # Convertir la chaîne JSON en liste Python
+            except json.JSONDecodeError:
+                pass  # Si ce n'est pas du JSON valide, on le laisse tel quel
+
+        # Traiter les tags correctement
         for tag_name in tags_data:
-            tag, created = Tag.objects.get_or_create(name=tag_name)
-            CourseTag.objects.create(course=course, tag=tag)
-        
+            tag_name = tag_name.strip()
+            print(tag_name)  # Vérification de la sortie
+            tag_slug = slugify(tag_name)
+            tag_obj, _ = Tag.objects.get_or_create(name=tag_name, slug=tag_slug)
+            course_tags.append(CourseTag(course=course, tag=tag_obj))
+
+
+        # Optimisation : création en batch des CourseTag
+        CourseTag.objects.bulk_create(course_tags)
+
         return course
+
 
 class TextContentCreateSerializer(serializers.ModelSerializer):
     class Meta:
