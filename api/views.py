@@ -8,10 +8,33 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import (TokenObtainPairView,
                                             TokenRefreshView)
 from social.models import Post
 
+
+class AdminTokenRefreshView(TokenRefreshView):
+    def post(self, request, *args, **kwargs):
+        refresh_token = request.data.get('refresh')
+        if not refresh_token:
+            return Response({"error": "Refresh token is required"}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # Valider le refresh token spécifique aux administrateurs
+            refresh = RefreshToken(refresh_token)
+            user_id = refresh['user_id']
+            user = User.objects.get(id=user_id)  
+            print(user.role)
+
+            if user.role != 'administrator': 
+                return Response({"error": "Invalid token for admin"}, status=status.HTTP_401_UNAUTHORIZED)
+
+            # Générer un nouveau token d'accès
+            access_token = str(refresh.access_token)
+            return Response({"access": access_token}, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_401_UNAUTHORIZED)
 
 class ApiRootView(APIView):
     """
@@ -72,10 +95,13 @@ def api_user_info(request):
     following_count = UserFollowing.objects.filter(user=user).count()
     post_count = Post.objects.filter(user=user).count()
     
+    avatar = request.build_absolute_uri(user.photo.url) if user.photo else request.build_absolute_uri(settings.DEFAULT_AVATAR_URL)    
     data = {
         'id': user.id,
         'username': user.username,
+        'name': user.profile.display_name,
         'email': user.email,
+        'avatar': avatar,
         'role': user.role,
         'is_staff': user.is_staff,
         'is_active': user.is_active,
@@ -85,5 +111,4 @@ def api_user_info(request):
         'following_count': following_count,
         'post_count': post_count,
     }
-    
     return Response(data)

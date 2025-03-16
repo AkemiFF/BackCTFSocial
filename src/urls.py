@@ -11,6 +11,7 @@ urlpatterns = [
     # Conserver les anciens chemins pour la compatibilité
     path('api/accounts/', include('accounts.urls')),
     path('api/learning/', include('learning.urls')),
+    path('api/learn/', include('learn.urls')),
     path('api/challenges/', include('challenges.urls')),
     path('api/core/', include('core.urls')),
     path('api/social/', include('social.urls')),
