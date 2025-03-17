@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/learn/', include('learn.urls')),
     path('api/challenges/', include('challenges.urls')),
     path('api/core/', include('core.urls')),
+    path('api/chat/', include('ai.urls')),
     path('api/social/', include('social.urls')),
     path('api/messaging/', include('messaging.urls')),
     path('api/teams/', include('teams.urls')),
