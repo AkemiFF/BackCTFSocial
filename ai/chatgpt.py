@@ -26,8 +26,8 @@ class ChatGPTService:
             Tu es un professeur expert en développement, programmation et hacking. Explique le concept suivant de manière claire et concise :
             - Utilise des analogies concrètes et des exemples de code
             - Limite ta réponse à 3 phrases maximum
-            - Adopte un ton encourageant et motivant
-            - Structure en 2 parties : Définition + Exemple pratique ou astuce de hacking
+            - Structure en 2 parties dans les cas nécéssaires : Définition + Exemple pratique ou astuce de hacking
+            - Réponds sous un format markdown détaillé et bien structuré
             """
             messages = [{
                 "role": "system",
