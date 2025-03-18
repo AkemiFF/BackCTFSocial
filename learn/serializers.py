@@ -136,7 +136,7 @@ class ContentItemSerializer(serializers.ModelSerializer):
 class QuizOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizOption
-        fields = ['id', 'text']
+        fields = ['id', 'text',"is_correct"]
 
 class QuizQuestionSerializer(serializers.ModelSerializer):
     options = QuizOptionSerializer(many=True, read_only=True)
