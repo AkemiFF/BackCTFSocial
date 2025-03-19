@@ -16,7 +16,8 @@ from rest_framework.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .admin_serializers import (ContentItemCreateSerializer,
+from .admin_serializers import (AdminQuizQuestionSerializer,
+                                ContentItemCreateSerializer,
                                 CourseCreateSerializer, ModuleCreateSerializer)
 from .serializers import (CertificationSerializer, CourseDetailSerializer,
                           CourseListSerializer, ModuleDetailSerializer,
@@ -529,3 +530,38 @@ class PointsTransactionViewSet(viewsets.ReadOnlyModelViewSet):
     
     def get_queryset(self):
         return PointsTransaction.objects.filter(user=self.request.user).order_by('-created_at')
+
+
+class CourseEnrollmentView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, course_id):
+        course = get_object_or_404(Course, id=course_id)
+        
+        # Créer UserProgress
+        UserProgress.objects.get_or_create(user=request.user, course=course)
+        
+        # Incrémenter le compteur students
+        Course.objects.filter(id=course_id).update(students=models.F('students') + 1)
+        
+        return Response({"message": "Inscription réussie"}, status=201)
+    
+    
+
+class QuizQuestionCreateView(APIView):
+    def post(self, request, module_id):
+        # Vérifier que le module existe
+        try:
+            module = Module.objects.get(id=module_id)
+        except Module.DoesNotExist:
+            return Response({"error": "Module non trouvé"}, status=status.HTTP_404_NOT_FOUND)
+        
+        # Intégrer l'ID du module dans les données envoyées si ce n'est pas déjà fait
+        data = request.data.copy()
+        data['module'] = module.id
+
+        serializer = AdminQuizQuestionSerializer(data=data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
