@@ -1,7 +1,8 @@
 # accounts/serializers.py
-from core.models import Skill
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from rest_framework import serializers
+
+from accounts.models import Skill
 
 from .models import *
 
