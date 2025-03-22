@@ -239,3 +239,141 @@ class ChatGPTEvaluator:
         except (json.JSONDecodeError, KeyError, ValueError) as e:
             logger.error(f"Erreur de parsing OpenAI: {str(e)}")
             raise ValueError("Erreur de traitement de la réponse AI")
+        
+
+# class QuizGeneratorService2:
+#     def __init__(self):
+#         self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+#         self.model = "gpt-3.5-turbo"
+
+#     def _build_user_prompt(self, module, user_prompt: str, number_of_questions: int) -> str:
+
+#         # Informations générales du module
+#         module_info = (
+#             f"Module: {module.title}\n"
+#             f"Durée: {module.duration}\n"
+#             f"Points: {module.points}\n"
+#         )
+#         # Récupération des contenus liés au module
+#         content_info = ""
+#         content_items = list(module.content_items.all())[:5]  # Limite à 5 éléments
+#         for content_item in content_items:
+#             if content_item.type == 'text' and hasattr(content_item, 'text_content'):
+#                 content_info += f"- {content_item.get_type_display()}: {content_item.text_content.content}\n"
+#             else:
+#                 content_info += f"- {content_item.get_type_display()} (contenu non textuel)\n"
+                
+#         # Construction du prompt complet
+#         prompt = f"""
+#             {module_info}
+#             Nombre de questions demandées: {number_of_questions}
+#             Prompt utilisateur: {user_prompt}
+
+#             Contenu du module:
+#             {content_info}            
+#             """
+#         return prompt.strip()
+
+#     def generate_quiz(self, user, module, prompt: str, num_questions: int, context=None):
+#         system_prompt = quiz_system_prompt
+        
+#         messages = [
+#             {"role": "system", "content": system_prompt.strip()},
+#             {"role": "user", "content": self._build_user_prompt(module, prompt, num_questions)}
+#         ]
+        
+#         try:
+#             response = self.client.chat.completions.create(
+#                 model="gpt-4-0125-preview",
+#                 temperature=0.3,
+#                 response_format={"type": "json_object"},
+#                 messages=messages
+#             )
+#             # Extract the content from the response
+#             content = response.choices[0].message.content
+#             # Parse the JSON content
+#             quiz_data = json.loads(content)
+#             return quiz_data
+#         except Exception as e:
+#             error_map = {
+#                 "RateLimitError": "Limite de requêtes dépassée",
+#                 "AuthenticationError": "Problème d'authentification",
+#                 "APIError": "Erreur de l'API"
+#             }
+#             return {"error": error_map.get(type(e).__name__, f"Erreur inconnue: {str(e)}")}
+        
+        
+class QuizGeneratorService:
+    def __init__(self):
+        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        self.model = "gpt-4-0125-preview"
+        
+    def generate_quiz(self,data):
+        try:
+            quiz_system_prompt = f"""
+                Tu es un générateur expert de quiz éducatifs. Respecte STRICTEMENT ces règles :
+
+                1. Génère EXACTEMENT {data['num_questions']} questions, 30% ouvertes et 70% QCM sauf si le contraire est demandé
+                2. Format JSON VALIDE avec une liste d'objets
+                3. Chaque question doit avoir :
+                - Un 'id' unique (débutant à 1)
+                - Un 'type' valide (multiple-choice/open-ended)
+                - Un 'order' correspondant à sa difficulté (1-{data['num_questions']})
+                - Des 'options' cohérentes pour les QCM
+
+                Exemple VALIDE :
+                {{"quiz":[
+                    {{
+                        "id": 1,
+                        "question": "Question ouverte exemple?",
+                        "type": "open-ended",
+                        "order": 1,
+                        "options": []
+                    }},
+                    {{
+                        "id": 2,
+                        "question": "QCM exemple?",
+                        "type": "multiple-choice",
+                        "order": 2,
+                        "options": [
+                            {{"id": 1, "text": "Bonne réponse", "is_correct": true}},
+                            {{"id": 2, "text": "Mauvaise réponse", "is_correct": false}}
+                        ]
+                    }}
+                ]}}
+                """
+            supplement = ""
+            if (data["question_type"] == "both"):
+                supplement  = f'\nTout les questions doivent être de type {data["question_type"]}'
+            messages = [
+                {"role": "assistant", "content": quiz_system_prompt},
+                {"role": "user", "content": f"Sujet du module : {data['module'].title}\nPrompt de l'utilisateur : {data['prompt']}\n Nombre de quiz a générer : {data["num_questions"]}{supplement}\n\nGénère UNIQUEMENT le JSON valide."}
+            ]
+
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=messages,
+                max_tokens=2000,
+                temperature=0.8,
+                response_format={"type": "json_object"},  # Force le mode JSON
+            )
+            
+
+            content = response.choices[0].message.content
+            print(content)
+            quiz_data = json.loads(content)
+            # logger.info(f"Quiz généré: {quiz_data}")
+            # Validation de la structure
+            if not isinstance(quiz_data["quiz"], list) :
+                raise ValueError("Structure de données invalide")
+                
+            return quiz_data["quiz"]
+
+        except Exception as e:
+            error_map = {
+                "RateLimitError": "Limite de requêtes dépassée",
+                "AuthenticationError": "Problème d'authentification",
+                "APIError": "Erreur de l'API"
+            }
+            print( error_map.get(type(e).__name__, str(e)))
+            return {"error": error_map.get(type(e).__name__, str(e))}

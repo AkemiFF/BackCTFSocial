@@ -4,18 +4,19 @@ import time
 
 from ai.chatgpt import GenerateModule  # Importez votre classe GenerateModule
 from ai.chatgpt import ChatGPTService
-from django.http import JsonResponse, StreamingHttpResponse
-from django.shortcuts import render
+from django.http import (HttpResponseBadRequest, JsonResponse,
+                         StreamingHttpResponse)
+from django.shortcuts import get_object_or_404, render
 from django.utils.decorators import method_decorator
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_http_methods
-from learn.models import Course
+from django.views.decorators.http import require_http_methods, require_POST
+from learn.models import Course, Module
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
-from .chatgpt import ChatGPTEvaluator
+from .chatgpt import ChatGPTEvaluator, QuizGeneratorService
 
 logger = logging.getLogger(__name__)
 
@@ -213,3 +214,47 @@ class EvaluateAnswerView(View):
                 {'error': f"Erreur lors de l'évaluation: {str(e)}"}, 
                 status=500
             )
+    
+quiz_service = QuizGeneratorService()
+
+@require_POST
+@csrf_exempt
+def generate_quiz_view(request):
+    try:
+        data = json.loads(request.body)
+        module_id = data.get("module_id")
+        module = get_object_or_404(Module, pk=module_id)
+        generate_data = {
+            "module": module,
+            "prompt": data.get("prompt", ""),
+            "num_questions": int(data.get("num_questions", 5)),
+            "question_type": data.get("question_type", "both"),
+            "context": {
+                "module_title": data.get("module_title", ""),                
+            }
+        }
+
+        result = quiz_service.generate_quiz(generate_data)
+
+        if "error" in result:
+            logger.error(f"Erreur du service: {result['error']}")
+            return JsonResponse({"error": result["error"]}, status=500)
+            
+        # Validation finale côté vue
+        logger.info(f"Début génération quiz pour le module {module_id}")
+        logger.debug(f"Données reçues: {json.dumps(data, indent=2)}")
+
+        result = quiz_service.generate_quiz(generate_data)
+
+        if "error" in result:
+            logger.error(f"Échec génération: {result['error']}")
+            return JsonResponse({"error": result["error"]}, status=500)
+            
+        logger.info("Génération réussie, validation finale")
+        logger.debug(f"Résultat brut: {json.dumps(result, indent=2)}")
+
+        return JsonResponse({"questions": result}, safe=False)
+
+    except Exception as e:
+        logger.exception("Erreur critique dans la vue")
+        return JsonResponse({"error": "Erreur de traitement"}, status=500)
