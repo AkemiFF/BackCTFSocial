@@ -33,7 +33,6 @@ urlpatterns = [
     
     # Include other app URLs
     path('accounts/', include('accounts.urls')),
-    path('learning/', include('learning.urls')),
     path('challenges/', include('challenges.urls')),
     path('core/', include('core.urls')),
     path('social/', include('social.urls')),
