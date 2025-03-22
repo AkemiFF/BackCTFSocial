@@ -40,7 +40,7 @@ class Notification(models.Model):
     # Optional foreign keys to related objects
     related_achievement = models.ForeignKey('gamification.Achievement', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     related_challenge = models.ForeignKey('challenges.Challenge', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
-    related_course = models.ForeignKey('learning.Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
+    related_course = models.ForeignKey('learn.Course', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     related_event = models.ForeignKey('events.Event', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     related_team = models.ForeignKey('teams.Team', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
     related_post = models.ForeignKey('social.Post', on_delete=models.SET_NULL, null=True, blank=True, related_name='notifications')
