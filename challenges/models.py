@@ -29,7 +29,7 @@ class Challenge(models.Model):
     points = models.PositiveIntegerField(_('points'))
     flag = models.CharField(_('flag'), max_length=255)
     category = models.ForeignKey('core.Category', on_delete=models.SET_NULL, null=True, related_name='challenges')
-    tags = models.ManyToManyField('core.Tag', related_name='challenges', blank=True)
+    tags = models.ManyToManyField('accounts.Tag', related_name='challenges', blank=True)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name='created_challenges')
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
