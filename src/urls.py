@@ -10,7 +10,6 @@ urlpatterns = [
     path('api/', include('api.urls')),
     # Conserver les anciens chemins pour la compatibilité
     path('api/accounts/', include('accounts.urls')),
-    path('api/learning/', include('learning.urls')),
     path('api/learn/', include('learn.urls')),
     path('api/challenges/', include('challenges.urls')),
     path('api/core/', include('core.urls')),
@@ -22,6 +21,7 @@ urlpatterns = [
     path('api/notifications/', include('notifications.urls')),
     # Authentification DRF
     path('api-auth/', include('rest_framework.urls')),
+    path('api/ctf/', include('ctf.urls')),
 ]
 
 if settings.DEBUG:
