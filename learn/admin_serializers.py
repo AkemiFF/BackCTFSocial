@@ -246,3 +246,19 @@ class AdminQuizQuestionSerializer(serializers.ModelSerializer):
             for option_data in options_data:
                 QuizOption.objects.create(question=question, **option_data)
         return question
+    
+    def update(self, instance, validated_data):
+        options_data = validated_data.pop('options', None)
+
+        # Mise à jour des champs de la question
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Mise à jour des options pour les questions à choix multiple
+        if options_data is not None and instance.type == "multiple-choice":
+            instance.options.all().delete()  # Supprime les anciennes options
+            for option_data in options_data:
+                QuizOption.objects.create(question=instance, **option_data)
+
+        return instance

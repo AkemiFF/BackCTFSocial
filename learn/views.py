@@ -28,6 +28,28 @@ from .serializers import (CertificationSerializer, CourseDetailSerializer,
 from .utils import calculate_user_level, update_course_progress
 
 
+class QuizQuestionUpdateView(APIView):
+    def put(self, request, module_id, quiz_id):
+        # Vérifier que le module existe
+        try:
+            module = Module.objects.get(id=module_id)
+        except Module.DoesNotExist:
+            return Response({"error": "Module non trouvé"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Vérifier que la question du quiz existe
+        try:
+            question = QuizQuestion.objects.get(id=quiz_id, module=module)
+        except QuizQuestion.DoesNotExist:
+            return Response({"error": "Quiz non trouvé pour ce module"}, status=status.HTTP_404_NOT_FOUND)
+
+        # Mettre à jour la question du quiz
+        serializer = AdminQuizQuestionSerializer(question, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+    
 class AdminReferenceDataView(APIView):
     """
     API endpoint pour récupérer les données de référence pour les formulaires d'administration
