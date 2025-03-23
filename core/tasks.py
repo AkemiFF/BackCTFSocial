@@ -1,8 +1,8 @@
 # core/tasks.py
-from celery import shared_task
 from django.utils import timezone
 
-from ..ctf.models import UserChallengeInstance
+from celery import shared_task
+from ctf.models import UserChallengeInstance
 
 
 @shared_task
