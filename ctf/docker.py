@@ -18,7 +18,7 @@ class DockerManager:
                 
                 # Vérifier si le réseau a des conteneurs attachés
                 if network.attrs['Containers']:
-                    logger.warning(f"Le réseau {self.network_name} a des conteneurs actifs. Aucune modification.")
+                    # logger.warning(f"Le réseau {self.network_name} a des conteneurs actifs. Aucune modification.")
                     return
                 
                 # Supprimer uniquement si la configuration IPAM est incorrecte
