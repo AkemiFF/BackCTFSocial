@@ -150,6 +150,10 @@ class Challenge(models.Model):
 
             # Installation de SSH et configuration
             RUN apk add --no-cache openssh-server shadow && \
+                echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \
+                echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+                echo "PasswordAuthentication no" >> /etc/ssh/sshd_config \
+                chown -R ctf_user:ctf_user /home/ctf_user \
                 ssh-keygen -A && \
                 mkdir -p /var/run/sshd && \
                 adduser -D -h /home/ctf_user -s /bin/sh ctf_user && \
@@ -219,88 +223,70 @@ class UserChallengeInstance(models.Model):
     def connection_info(self):
         """Retourne les infos de connexion selon le type de défi"""
         if self.challenge.challenge_type.slug == 'ssh':
+            port = self.assigned_ports.get('22/tcp')
+            if not port:
+                logger.warning("Aucun port SSH assigné pour cette instance")
+                return {}
+            
             return {
                 'host': settings.DOCKER_HOST_IP,
-                'port': self.assigned_ports.get('22/tcp'),
+                'port': port,
                 'username': 'ctf_user',
-                'auth_method': 'ssh_key' if self.ssh_credentials else 'password'
+                'auth_method': 'ssh_key'
             }
         elif self.challenge.challenge_type.slug == 'web':
             return {'url': self.web_url}
         return {}
     
     def start_container(self):
-        """Lance le conteneur Docker avec configuration dynamique"""
-        challenge = self.challenge
-        user_prefix = f"{self.user.id}_{self.challenge.id}"
-        docker_manager.ensure_network()
-
-        # Génération des paramètres dynamiques
-        container_config = {
-            'image': self.challenge.built_image,  
-            'detach': True,  # Syntaxe corrigée
-            'network_mode': docker_manager.network_name, 
-            'name': f"{user_prefix}_{uuid.uuid4().hex[:8]}",
-            'ports': self._get_port_bindings(), 
-            'environment': {
-                        **self._get_environment_vars(),
-                        'SSHD_OPTS': '-D -e'  # Force le mode démon + logging
-                    },            
-            
-            # 'remove': True ,
-            # Retirez temporairement les limites de ressources
-            # 'mem_limit': '512m',
-            # 'cpu_quota': 50000,
-            'restart_policy': {"Name": "unless-stopped"}, 
-            'labels': {
-                'hackitech_user': str(self.user.id),
-                'hackitech_challenge': str(self.challenge.id)
-            }
-        }
-        
+        """Lance le conteneur Docker (version asynchrone)"""
         try:
-            container = docker_manager.client.containers.run(**container_config)
-            # container.reload()
+            container = docker_manager.client.containers.run(
+                image=self.challenge.built_image,
+                detach=True,
+                network_mode=docker_manager.network_name,
+                name=f"{self.user.id}_{self.challenge.id}_{uuid.uuid4().hex[:8]}",
+                ports=self._get_port_bindings(),
+                environment={**self._get_environment_vars(), 'SSHD_OPTS': '-D -e'},
+                labels={
+                    'hackitech_user': str(self.user.id),
+                    'hackitech_challenge': str(self.challenge.id)
+                }
+            )
+            container.reload()
 
-            for line in container.logs(stream=True):
-                logger.debug(line.decode().strip())
-            
-            start_time = time.time()
-            while container.status != 'running' or (time.time() - start_time) < 10:
-                time.sleep(0.5)
-                container.reload()
-
-            if container.status != 'running':
-                error_logs = container.logs().decode()
-                logger.error(f"Le conteneur n'a pas démarré correctement. Logs:\n{error_logs}")
-                raise RuntimeError("Le conteneur n'a pas démarré correctement")
-
+            # Mise à jour minimale immédiate
             self.container_id = container.id
+            logger.info(f"Conteneur {container} ")
+            logger.info(f"Ports assignés par Docker : {container.ports}")
             self.assigned_ports = self._sanitize_ports(container.ports)
-            self._post_start_setup(container)
-            self.status = 'running'
+            logger.info(f"Ports après sanitization : {self.assigned_ports}")
+            
+            self.status = 'starting'
+            
             self.save()
-        except docker.errors.ContainerError as e:
-            logger.error(f"Erreur lors de l'exécution du conteneur : {str(e)}")
-            raise
-        except docker.errors.ImageNotFound as e:
-            logger.error(f"Image Docker introuvable : {str(e)}")
-            raise
-        except docker.errors.APIError as e:
-            logger.error(f"Erreur API Docker : {str(e)}")
-            raise
-        except Exception as e:
-            logger.error(f"Erreur inattendue lors du démarrage du conteneur : {str(e)}")
-            raise
+            self._post_start_setup(container) 
+            logger.info(f"Conteneur {container.id} lancé avec succès (statut: {container.status})")
 
+        except docker.errors.APIError as e:
+            logger.error(f"Erreur Docker API: {str(e)}")
+            self.status = 'failed'
+            self.save()
+            raise
         
+        except Exception as e:
+            logger.error(f"Erreur inattendue: {str(e)}")
+            self.status = 'failed'
+            self.save()
+            raise
+            
     def _sanitize_ports(self, docker_ports):
-        """Convertit la structure Docker en dict simple"""
         sanitized = {}
         if docker_ports:
             for container_port, host_configs in docker_ports.items():
-                if host_configs and isinstance(host_configs, list):
-                  sanitized[container_port] = str(host_configs[0].get('HostPort', ''))
+                logger.debug(f"Port {container_port} : {host_configs}")
+                if host_configs:
+                    sanitized[container_port] = host_configs[0]['HostPort']
         return sanitized
     
     def _get_environment_vars(self):
@@ -318,14 +304,13 @@ class UserChallengeInstance(models.Model):
         }
 
     def _get_port_bindings(self):
-        """Configure les ports avec le format Docker SDK"""
+        """Retourne les bindings de ports au format Docker SDK"""
         port_bindings = {}
         for container_port, host_port in self.challenge.docker_ports.items():
-            # Format : {'22/tcp': [{'HostPort': ''}]} pour un port dynamique
-            port_bindings[container_port] = (
-                [docker.types.PortBinding(HostPort=host_port or '')] 
-                if host_port else None
-            )
+            logger.info(f"Port {container_port} : {host_port}")
+            # Format attendu: {container_port: [host_port]} ou [] pour aléatoire
+            port_bindings[container_port] = str(host_port) if host_port is not None else None
+            logger.info(f"Port bindings : {port_bindings}")
         return port_bindings
 
     def _post_start_setup(self, container):
@@ -336,18 +321,30 @@ class UserChallengeInstance(models.Model):
             self._setup_web_access(container)
 
     def _setup_ssh_access(self, container):
+        if container.status != 'running':
+            container.start()
+            time.sleep(2)
+            
+        logger.info(f"asigned port : {self.assigned_ports}")
         
-        """Configure l'accès SSH unique"""
+        if '22/tcp' not in self.assigned_ports:
+            logger.error("Aucun port SSH (22/tcp) n'a été assigné au conteneur")
+            raise ValueError("Port SSH manquant")
+        
         private_key, public_key = generate_ssh_keys()
         exit_code, output = container.exec_run(
             f"sh -c 'mkdir -p /home/ctf_user/.ssh && "
-            f"echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+            f"printf \"{public_key}\\n\" > /home/ctf_user/.ssh/authorized_keys && "  
+            f"chown -R ctf_user:ctf_user /home/ctf_user/.ssh && " 
             f"chmod 700 /home/ctf_user/.ssh && "
-            f"chmod 600 /home/ctf_user/.ssh/authorized_keys'",
+            f"chmod 600 /home/ctf_user/.ssh/authorized_keys && "
+            f"sed -i \"s/^ctf_user:\\*/ctf_user::/\" /etc/shadow'",
             user="root"
         )
+
         
         if exit_code != 0:
+            logger.error(f"Erreur lors de l'initialisation SSH : {output.decode()}")
             raise RuntimeError(f"Échec configuration SSH : {output.decode()}")
         
         
@@ -371,7 +368,7 @@ class UserChallengeInstance(models.Model):
         self.ssh_credentials = {
             'port': self.assigned_ports['22/tcp'],
             'username': 'ctf_user',
-            'key': private_key.encode()
+            'key': private_key
         }
         self.save()
 
