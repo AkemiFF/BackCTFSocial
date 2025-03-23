@@ -6,3 +6,4 @@ from ctf.models import *
 admin.site.register(UserChallengeInstance)
 admin.site.register(Challenge)
 admin.site.register(ChallengeType)
+admin.site.register(SSHKey)
