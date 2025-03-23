@@ -147,19 +147,17 @@ class Challenge(models.Model):
         if self.challenge_type.slug == 'ssh':
             return """
             FROM alpine:latest
-
-            # Installation de SSH et configuration
+            
             RUN apk add --no-cache openssh-server shadow && \
-                echo "PermitRootLogin no" >> /etc/ssh/sshd_config && \
-                echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
-                echo "PasswordAuthentication no" >> /etc/ssh/sshd_config \
-                chown -R ctf_user:ctf_user /home/ctf_user \
+                adduser -D -h /home/ctf_user -s /bin/sh ctf_user && \      
                 ssh-keygen -A && \
-                mkdir -p /var/run/sshd && \
-                adduser -D -h /home/ctf_user -s /bin/sh ctf_user && \
                 sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
                 sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
-                sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/' /etc/ssh/sshd_config
+                sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/' /etc/ssh/sshd_config && \
+                sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+                echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+                mkdir -p /var/run/sshd && \
+                chown -R ctf_user:ctf_user /home/ctf_user
 
             EXPOSE 22
             CMD ["sh", "-c", "which sshd && /usr/sbin/sshd -D -e"]
@@ -333,16 +331,19 @@ class UserChallengeInstance(models.Model):
         
         private_key, public_key = generate_ssh_keys()
         exit_code, output = container.exec_run(
-            f"sh -c 'mkdir -p /home/ctf_user/.ssh && "
-            f"printf \"{public_key}\\n\" > /home/ctf_user/.ssh/authorized_keys && "  
-            f"chown -R ctf_user:ctf_user /home/ctf_user/.ssh && " 
+            f"sh -c '"
+            f"mkdir -p /home/ctf_user/.ssh && "
+            f"echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+            f"chown -R ctf_user:ctf_user /home/ctf_user && "
             f"chmod 700 /home/ctf_user/.ssh && "
             f"chmod 600 /home/ctf_user/.ssh/authorized_keys && "
-            f"sed -i \"s/^ctf_user:\\*/ctf_user::/\" /etc/shadow'",
+            f"sed -i \"s/^ctf_user:!:/ctf_user::/\" /etc/shadow'",
             user="root"
         )
 
-        
+
+
+                
         if exit_code != 0:
             logger.error(f"Erreur lors de l'initialisation SSH : {output.decode()}")
             raise RuntimeError(f"Échec configuration SSH : {output.decode()}")
