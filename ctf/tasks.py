@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
     bind=True,
     autoretry_for=(docker.errors.APIError, docker.errors.ImageNotFound),
     retry_backoff=10,
-    max_retries=3
+    max_retries=2
 )
 def start_challenge_task(self, instance_id):
     try:
