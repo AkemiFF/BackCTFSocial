@@ -95,15 +95,23 @@ class Challenge(models.Model):
     dockerfile = models.TextField(_('dockerfile'), blank=True)
     docker_context = models.JSONField(_('contexte Docker'), default=dict)
     built_image = models.CharField(_('image construite'), max_length=255, blank=True)
+    setup_ssh = models.BooleanField(_('setup SSH'), default=False)
     
     def build_docker_image(self):
         """Construit l'image Docker dynamiquement"""
-        client = docker.from_env()
+        if not self.id:
+            raise ValueError("L'objet Challenge doit être enregistré avant de construire l'image Docker.")
+        
+        client = docker_manager.client 
         image_tag = f"hackitech/{self.id}:latest"
         
         with tempfile.TemporaryDirectory() as context_dir:
             # Générer le Dockerfile
-            dockerfile_content = self.dockerfile or self.generate_default_dockerfile()
+            if self.dockerfile:
+                dockerfile_content = self.dockerfile 
+            else:
+                dockerfile_content = self.generate_default_dockerfile()
+            logger.info(dockerfile_content)
             dockerfile_path = os.path.join(context_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:
                 f.write(dockerfile_content)
@@ -128,7 +136,7 @@ class Challenge(models.Model):
                     tag=image_tag,
                     buildargs=self.docker_context.get('args', {}),
                     forcerm=True
-                )
+                ) 
                 self.built_image = image_tag
                 self.save()
                 
@@ -142,31 +150,47 @@ class Challenge(models.Model):
                 logger.error(f"Échec du build : {e.msg}\nLogs : {e.build_log}")
                 return False
             
-        # Dans models.py, méthode generate_default_dockerfile()
     def generate_default_dockerfile(self):
-        if self.challenge_type.slug == 'ssh':
-            return """
-            FROM alpine:latest
+        # if self.challenge_type.slug == 'ssh':
+        #     return """
+        #     FROM alpine:latest
             
-            RUN apk add --no-cache openssh-server shadow && \
-                adduser -D -h /home/ctf_user -s /bin/sh ctf_user && \      
-                ssh-keygen -A && \
-                sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
-                sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
-                sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/' /etc/ssh/sshd_config && \
-                sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
-                echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
-                mkdir -p /var/run/sshd && \
-                chown -R ctf_user:ctf_user /home/ctf_user
+        #     RUN apk add --no-cache openssh-server shadow && \
+        #         adduser -D -h /home/ctf_user -s /bin/sh ctf_user && \      
+        #         ssh-keygen -A && \
+        #         sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/' /etc/ssh/sshd_config && \
+        #         sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin no/' /etc/ssh/sshd_config && \
+        #         sed -i 's/AllowTcpForwarding no/AllowTcpForwarding yes/' /etc/ssh/sshd_config && \
+        #         sed -i 's/#PubkeyAuthentication yes/PubkeyAuthentication yes/' /etc/ssh/sshd_config && \
+        #         echo "PubkeyAuthentication yes" >> /etc/ssh/sshd_config && \
+        #         mkdir -p /var/run/sshd && \
+        #         chown -R ctf_user:ctf_user /home/ctf_user
 
-            EXPOSE 22
-            CMD ["sh", "-c", "which sshd && /usr/sbin/sshd -D -e"]
-            """
+        #     EXPOSE 22
+        #     CMD ["sh", "-c", "which sshd && /usr/sbin/sshd -D -e"]
+        #     """
+        print(self.challenge_type.slug)
+        if self.challenge_type.slug == 'ssh':
+            data = """
+                FROM alpine:latest
+
+                RUN apk add --no-cache openssh-server shadow && \
+                    ssh-keygen -A && \
+                    mkdir -p /var/run/sshd 
+
+                EXPOSE 22
+                CMD ["/usr/sbin/sshd", "-D", "-e"]
+                """
+            print(data)
+            return data
+
         elif self.challenge_type.slug == 'web':
-            return """
+            data = """
             FROM nginx:alpine
             CMD ["nginx", "-g", "daemon off;"]  # Main process
             """
+            print(data)
+            return data
         return "FROM alpine:latest"
 
     class Meta:
@@ -189,6 +213,7 @@ class Challenge(models.Model):
             except json.JSONDecodeError:
                 raise ValueError("Format JSON invalide pour environment_vars")
         super().save(*args, **kwargs)
+
         
 class UserChallengeInstance(models.Model):
     """Instance Docker par utilisateur pour un défi"""
@@ -256,7 +281,7 @@ class UserChallengeInstance(models.Model):
             # Mise à jour minimale immédiate
             self.container_id = container.id
             logger.info(f"Conteneur {container} ")
-            logger.info(f"Ports assignés par Docker : {container.ports}")
+            logger.info(f"Ports assignés par Docker : {container.ports}")        
             self.assigned_ports = self._sanitize_ports(container.ports)
             logger.info(f"Ports après sanitization : {self.assigned_ports}")
             
@@ -319,6 +344,9 @@ class UserChallengeInstance(models.Model):
             self._setup_web_access(container)
 
     def _setup_ssh_access(self, container):
+        if not self.challenge.setup_ssh : 
+            return
+        
         if container.status != 'running':
             container.start()
             time.sleep(2)
@@ -330,35 +358,104 @@ class UserChallengeInstance(models.Model):
             raise ValueError("Port SSH manquant")
         
         private_key, public_key = generate_ssh_keys()
-        exit_code, output = container.exec_run(
-            f"sh -c '"
-            f"mkdir -p /home/ctf_user/.ssh && "
-            f"echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
-            f"chown -R ctf_user:ctf_user /home/ctf_user && "
-            f"chmod 700 /home/ctf_user/.ssh && "
-            f"chmod 600 /home/ctf_user/.ssh/authorized_keys && "
-            f"sed -i \"s/^ctf_user:!:/ctf_user::/\" /etc/shadow'",
-            user="root"
-        )
-
-
-
-                
+        # exit_code, output = container.exec_run(
+        #     f"sh -c '"
+        #     f"mkdir -p /home/ctf_user/.ssh && "
+        #     f"echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+        #     f"chown -R ctf_user:ctf_user /home/ctf_user && "
+        #     f"chmod 700 /home/ctf_user/.ssh && "
+        #     f"chmod 600 /home/ctf_user/.ssh/authorized_keys && "
+        #     f"sed -i \"s/^ctf_user:!:/ctf_user::/\" /etc/shadow'",
+        #     user="root"
+        # )
+        exit_code, output = container.exec_run("test -f /etc/ssh/sshd_config", user="root")
         if exit_code != 0:
-            logger.error(f"Erreur lors de l'initialisation SSH : {output.decode()}")
-            raise RuntimeError(f"Échec configuration SSH : {output.decode()}")
-        
-        
-        try:
-            if container.status != 'running':
-                container.start()
-                time.sleep(2)                  
-            
+            logger.error("Le fichier /etc/ssh/sshd_config n'existe pas. Réinstallation d'OpenSSH...")
+            exit_code, output = container.exec_run("apk add --no-cache openssh-server", user="root")
             if exit_code != 0:
-                raise RuntimeError(f"Échec SSH setup: {output.decode()}")
-        except Exception as e:
-            logger.error(f"Erreur configuration SSH: {str(e)}")
-            raise
+                logger.error(f"Échec de la réinstallation d'OpenSSH : {output.decode()}")
+                raise RuntimeError("Échec de la réinstallation d'OpenSSH")
+            
+            # Générez le fichier de configuration SSH
+            exit_code, output = container.exec_run("ssh-keygen -A", user="root")
+            if exit_code != 0:
+                logger.error(f"Échec de la génération des clés SSH : {output.decode()}")
+                raise RuntimeError("Échec de la génération des clés SSH")
+            
+
+        cmd1 = (
+            "sh -c '"
+            "id -u ctf_user || adduser -D -h /home/ctf_user -s /bin/sh ctf_user && "
+            "mkdir -p /home/ctf_user/.ssh && "
+            "echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+            "chown -R ctf_user:ctf_user /home/ctf_user && "
+            "chmod 700 /home/ctf_user/.ssh && "
+            "chmod 600 /home/ctf_user/.ssh/authorized_keys'"
+        ).format(public_key=public_key)
+
+
+        exit_code, output = container.exec_run(cmd1, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur lors de la configuration de base SSH : {output.decode()}")
+            raise RuntimeError(f"Échec configuration SSH : {output.decode()}")
+        else:
+            logger.info("Configuration de base SSH réussie.")
+
+        # Partie 2 : Modification de /etc/ssh/sshd_config pour PasswordAuthentication
+        cmd2 = (
+            "sh -c '"
+            "sed -i \"s/#PasswordAuthentication yes/PasswordAuthentication no/\" /etc/ssh/sshd_config'"
+        )
+        exit_code, output = container.exec_run(cmd2, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur sur PasswordAuthentication : {output.decode()}")
+        else:
+            logger.info("Modification de PasswordAuthentication réussie.")
+
+        # Partie 3 : Modification de /etc/ssh/sshd_config pour PermitRootLogin
+        cmd3 = (
+            "sh -c '"
+            "sed -i \"s/#PermitRootLogin prohibit-password/PermitRootLogin no/\" /etc/ssh/sshd_config'"
+        )
+        exit_code, output = container.exec_run(cmd3, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur sur PermitRootLogin : {output.decode()}")
+        else:
+            logger.info("Modification de PermitRootLogin réussie.")
+
+        # Partie 4 : Modification de /etc/ssh/sshd_config pour AllowTcpForwarding
+        cmd4 = (
+            "sh -c '"
+            "sed -i \"s/AllowTcpForwarding no/AllowTcpForwarding yes/\" /etc/ssh/sshd_config'"
+        )
+        exit_code, output = container.exec_run(cmd4, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur sur AllowTcpForwarding : {output.decode()}")
+        else:
+            logger.info("Modification de AllowTcpForwarding réussie.")
+
+        # Partie 5 : Modification de /etc/ssh/sshd_config pour PubkeyAuthentication
+        cmd5 = (
+            "sh -c '"
+            "sed -i \"s/#PubkeyAuthentication yes/PubkeyAuthentication yes/\" /etc/ssh/sshd_config && "
+            "echo \"PubkeyAuthentication yes\" >> /etc/ssh/sshd_config'"
+        )
+        exit_code, output = container.exec_run(cmd5, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur sur PubkeyAuthentication : {output.decode()}")
+        else:
+            logger.info("Modification de PubkeyAuthentication réussie.")
+
+        # Partie 6 : Modification de /etc/shadow pour corriger la ligne de l'utilisateur
+        cmd6 = (
+            "sh -c '"
+            "sed -i \"s/^ctf_user:!:/ctf_user::/\" /etc/shadow'"
+        )
+        exit_code, output = container.exec_run(cmd6, user="root")
+        if exit_code != 0:
+            logger.error(f"Erreur sur la modification de /etc/shadow : {output.decode()}")
+        else:
+            logger.info("Modification de /etc/shadow réussie.")
         SSHKey.objects.create(
             user_instance=self,
             private_key=private_key,
