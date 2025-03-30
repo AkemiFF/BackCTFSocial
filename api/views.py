@@ -25,7 +25,6 @@ class AdminTokenRefreshView(TokenRefreshView):
             refresh = RefreshToken(refresh_token)
             user_id = refresh['user_id']
             user = User.objects.get(id=user_id)  
-            print(user.role)
 
             if user.role != 'administrator': 
                 return Response({"error": "Invalid token for admin"}, status=status.HTTP_401_UNAUTHORIZED)
