@@ -111,6 +111,16 @@ class ChallengeCategoryViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+    
+class DockerConfigTemplateCreateViewSet(viewsets.ModelViewSet):
+    queryset = DockerConfigTemplate.objects.all()
+    serializer_class = DockerConfigTemplateCreateSerializer
+    permission_classes = [IsAuthenticated]
+    
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminUser()]
+        return [IsAuthenticated()]
 
 class ChallengeViewSet(viewsets.ModelViewSet):
     queryset = Challenge.objects.all()
