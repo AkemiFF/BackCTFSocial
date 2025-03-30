@@ -6,7 +6,8 @@ from .views import *
 
 router = DefaultRouter()
 router.register(r'challenge-types', ChallengeTypeViewSet)
-router.register(r'docker-templates', DockerConfigTemplateViewSet)
+router.register(r'docker-templates', DockerConfigTemplateViewSet, basename='dockerconfigtemplate-view')
+router.register(r'docker-config-templates', DockerConfigTemplateCreateViewSet, basename='dockerconfigtemplate-create')
 router.register(r'challenges', ChallengeViewSet)
 router.register(r'categories', ChallengeCategoryViewSet)
 
