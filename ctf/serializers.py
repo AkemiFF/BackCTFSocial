@@ -1,7 +1,8 @@
 # serializers.py
 from rest_framework import serializers
 
-from .models import Challenge, ChallengeType
+from .models import (Challenge, ChallengeCategory, ChallengeType,
+                     DockerConfigTemplate)
 
 
 class ChallengeSerializer(serializers.ModelSerializer):
@@ -11,13 +12,14 @@ class ChallengeSerializer(serializers.ModelSerializer):
         
 class ChallengeTypeSerializer(serializers.ModelSerializer):
     class Meta:
-        model = ChallengeType
+        model = ChallengeType        
+        fields = '__all__'
+        
+class DockerConfigTemplateCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DockerConfigTemplate
         fields = '__all__'
 
-from rest_framework import serializers
-
-from .models import (Challenge, ChallengeCategory, ChallengeType,
-                     DockerConfigTemplate)
 
 
 class ChallengeTypeSerializer(serializers.ModelSerializer):
