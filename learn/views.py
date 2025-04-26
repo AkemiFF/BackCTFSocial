@@ -234,12 +234,15 @@ class CourseViewSet(viewsets.ReadOnlyModelViewSet):
     ordering_fields = ['title', 'created_at', 'students', 'rating']
     
     def get_serializer_class(self):
-        if self.action == 'retrieve':
+        if self.action == 'retrieve' :
             return CourseDetailSerializer
         return CourseListSerializer
     
     def get_queryset(self):
-        queryset = Course.objects.all()
+        queryset = Course.objects.prefetch_related(
+            'modules', 
+            'course_tags__tag',            
+        ).all()
         
         # Filtrer par niveau
         level = self.request.query_params.get('level')
