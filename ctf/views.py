@@ -36,7 +36,8 @@ logger = logging.getLogger(__name__)
 @api_view(['GET'])
 def check_status(request, instance_id):
     instance = get_object_or_404(UserChallengeInstance, challenge_id=instance_id, user=request.user)
-    
+    if instance.status == 'starting' or not instance.status == 'running':
+        return Response({'status': instance.status})
     instructions = f"Bienvenue dans le défi {instance.challenge.title}.\n{instance.challenge.description}"
     download_url = request.build_absolute_uri(
         reverse('download-ssh-key', args=[instance.id])

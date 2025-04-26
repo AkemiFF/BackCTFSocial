@@ -220,6 +220,8 @@ class UserChallengeInstance(models.Model):
     STATUS_CHOICES = (
         ('running', 'En cours'),
         ('stopped', 'Arrêté'),
+        ('starting', 'Démarrage'),
+        ('failed', 'Échec'),
         ('expired', 'Expiré')
     )
     
