@@ -102,10 +102,12 @@ class AdminCourseViewSet(viewsets.ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
+   
         title = serializer.validated_data.get('title')
         slug = slugify(title)
         unique_slug = slug
-        num = 1
+        num = 1      
+        
         while Course.objects.filter(slug=unique_slug).exists():
             unique_slug = f'{slug}-{num}'
             num += 1
@@ -118,6 +120,7 @@ class AdminCourseViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_201_CREATED
                 )
         except Exception as e:
+            print(serializer.errors)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
@@ -138,7 +141,6 @@ class AdminModuleViewSet(viewsets.ModelViewSet):
         """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        
         try:
             with transaction.atomic():
                 module = serializer.save()
@@ -147,6 +149,7 @@ class AdminModuleViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_201_CREATED
                 )
         except Exception as e:
+            # print(e)
             return Response(
                 {'error': str(e)},
                 status=status.HTTP_400_BAD_REQUEST
