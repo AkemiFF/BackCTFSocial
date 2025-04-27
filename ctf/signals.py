@@ -17,7 +17,7 @@ def setup_default_challenge_types(sender, **kwargs):
     ChallengeType.objects.get_or_create(
         slug='ssh',
         defaults={
-            'name': 'SSH Challenge',
+            'name': 'BaseCTF',
             'validation_type': 'command',
             'icon': 'terminal'
         }
@@ -78,11 +78,11 @@ def create_default_challenge_types():
         if created:
             logger.info(f"ChallengeType créé : {slug}")
 
-def create_sample_challenges():
+def create_sample_ssh():
     """Crée des défis exemple si aucun n'existe"""
-    if Challenge.objects.exists():
+    """     if Challenge.objects.exists():
         return
-
+ """
     samples = [
          {
             'title': 'SSH Débutant',
@@ -90,7 +90,40 @@ def create_sample_challenges():
             'difficulty': 'easy',
             'points': 100,
             'description': 'Trouvez le flag caché dans /home/ctf_user',
-            'static_flag': 'FLAG{SSH_MASTER_123}'  # Flag explicite
+            'static_flag': 'FLAG{SSH_MASTER_123}'
+        }  
+    ]
+
+    for data in samples:
+        try:
+            # with transaction.atomic():
+                challenge_type = ChallengeType.objects.get(slug=data['type_slug'])
+                
+                challenge = Challenge.objects.create(
+                        title=data['title'],
+                        challenge_type=challenge_type,
+                        setup_ssh=True,
+                        difficulty=data['difficulty'],
+                        points=data['points'],
+                        description=data['description']
+                    )
+                
+                logger.info(f"Challenge exemple créé : {challenge.title}")
+        except Exception as e:
+            logger.error(f"Erreur création challenge : {str(e)}")
+def create_sample_challenges():
+    """Crée des défis exemple si aucun n'existe"""
+    """     if Challenge.objects.exists():
+        return
+ """
+    samples = [
+         {
+            'title': 'SSH Débutant',
+            'type_slug': 'ssh',
+            'difficulty': 'easy',
+            'points': 100,
+            'description': 'Trouvez le flag caché dans /home/ctf_user',
+            'static_flag': 'FLAG{SSH_MASTER_123}'
         },       
         {
             'title': 'Web Basic',
@@ -105,13 +138,23 @@ def create_sample_challenges():
         try:
             with transaction.atomic():
                 challenge_type = ChallengeType.objects.get(slug=data['type_slug'])
-                challenge = Challenge.objects.create(
-                    title=data['title'],
-                    challenge_type=challenge_type,
-                    difficulty=data['difficulty'],
-                    points=data['points'],
-                    description=data['description']
-                )
+                if samples.type_slug == 'ssh' :
+                    challenge = Challenge.objects.create(
+                        title=data['title'],
+                        challenge_type=challenge_type,
+                        setup_ssh=True,
+                        difficulty=data['difficulty'],
+                        points=data['points'],
+                        description=data['description']
+                    )
+                else :
+                    challenge = Challenge.objects.create(
+                        title=data['title'],
+                        challenge_type=challenge_type,
+                        difficulty=data['difficulty'],
+                        points=data['points'],
+                        description=data['description']
+                    )
                 logger.info(f"Challenge exemple créé : {challenge.title}")
         except Exception as e:
             logger.error(f"Erreur création challenge : {str(e)}")

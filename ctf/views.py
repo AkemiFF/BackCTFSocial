@@ -36,6 +36,7 @@ logger = logging.getLogger(__name__)
 @api_view(['GET'])
 def check_status(request, instance_id):
     instance = get_object_or_404(UserChallengeInstance, challenge_id=instance_id, user=request.user)
+    print(f"Vérification de l'état de l'instance {instance_id} pour l'utilisateur {request.user.username}")
     if instance.status == 'starting' or not instance.status == 'running':
         return Response({'status': instance.status})
     instructions = f"Bienvenue dans le défi {instance.challenge.title}.\n{instance.challenge.description}"
@@ -67,9 +68,10 @@ def check_status(request, instance_id):
 
 @api_view(['GET'])
 @require_http_methods(["GET"])
+@permission_classes([IsAuthenticated])
 def download_ssh_key(request, instance_id):
     instance = get_object_or_404(UserChallengeInstance, id=instance_id, user=request.user)
-    
+   
     if not instance.ssh_credentials:
         return Response({"error": "Clé non disponible"}, status=404)
 
@@ -197,12 +199,42 @@ def docker_templates_view(request):
     
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
+def stop_challenge_2(request, challenge_id):
+    user = request.user
+    challenge = get_object_or_404(Challenge, id=challenge_id)
+    try:
+        # Supprime l'instance existante
+        existing_instance = UserChallengeInstance.objects.get(user=user, challenge=challenge)
+        existing_instance.stop_container()
+        existing_instance.delete()
+        # return Response({'error': 'Challenge déjà actif'}, status=400)
+
+        
+        # start_challenge_task.delay(instance.id) 
+        
+        return Response({
+            'status': 'stopping',
+            'message': 'Arret du challenge en cours...',
+            'instance_id': str(existing_instance.id)
+        })
+        
+    except Exception as e:
+        logger.error(f"Erreur démarrage challenge: {str(e)}")
+        return Response({'error': str(e)}, status=500)
+
+    
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
 def start_challenge(request, challenge_id):
     user = request.user
     challenge = get_object_or_404(Challenge, id=challenge_id)
     
     if UserChallengeInstance.objects.filter(user=user, challenge=challenge).exists():
-        return Response({'error': 'Challenge déjà actif'}, status=400)
+        # Supprime l'instance existante
+        existing_instance = UserChallengeInstance.objects.get(user=user, challenge=challenge)
+        existing_instance.stop_container()
+        existing_instance.delete()
+        # return Response({'error': 'Challenge déjà actif'}, status=400)
 
     try:
         # Crée l'instance et lance la tâche asynchrone

@@ -1,9 +1,14 @@
 import json
 import logging
 import os
+import random
+import shlex
+import string
+import subprocess
 import tempfile
 import time
 import uuid
+from uuid import UUID
 
 import docker
 from cryptography.fernet import Fernet
@@ -239,6 +244,29 @@ class UserChallengeInstance(models.Model):
     class Meta:
         unique_together = ('user', 'challenge')
     
+
+    def generate_encrypted_flag(self):
+        # 1. Génération du flag aléatoire
+        flag = f'thisWasEasy{{{"".join(random.choices(string.ascii_uppercase + string.digits, k=16))}}}'
+        self.unique_flag = flag
+
+        # 2. Chiffrement du flag
+        #    - pas de salt pour sortir une donnée chiffrée reproductible
+        #    - -p pour afficher key & iv (sur stderr), très pratique pour apprendre à décrypter
+        cmd = (
+            "echo -n {flag_esc} | "
+            "openssl enc -aes-128-cbc -a -nosalt -pass pass:beginner -p"
+        ).format(flag_esc=shlex.quote(flag))
+
+        # On récupère stdout+stderr (output chiffré + key/iv)
+        result = subprocess.check_output(cmd, shell=True, stderr=subprocess.STDOUT)
+        encrypted_flag_with_params = result.decode().strip()
+
+        # Si tu veux isoler juste la partie base64 (sans key/iv), tu peux faire :
+        # encrypted_flag = encrypted_flag_with_params.splitlines()[-1]
+
+        return encrypted_flag_with_params
+
     def save(self, *args, **kwargs):
         if not self.expiry_time:
             self.expiry_time = timezone.now() + timezone.timedelta(hours=2)
@@ -285,12 +313,17 @@ class UserChallengeInstance(models.Model):
             logger.info(f"Conteneur {container} ")
             logger.info(f"Ports assignés par Docker : {container.ports}")        
             self.assigned_ports = self._sanitize_ports(container.ports)
-            logger.info(f"Ports après sanitization : {self.assigned_ports}")
             
-            self.status = 'starting'
+            
             
             self.save()
             self._post_start_setup(container) 
+            
+            if not self.challenge.setup_ssh:
+                self.status = 'running'
+                self.save()
+                return
+                
             logger.info(f"Conteneur {container.id} lancé avec succès (statut: {container.status})")
 
         except docker.errors.APIError as e:
@@ -352,7 +385,8 @@ class UserChallengeInstance(models.Model):
         if container.status != 'running':
             container.start()
             time.sleep(2)
-            
+        
+        
         logger.info(f"asigned port : {self.assigned_ports}")
         
         if '22/tcp' not in self.assigned_ports:
@@ -360,16 +394,7 @@ class UserChallengeInstance(models.Model):
             raise ValueError("Port SSH manquant")
         
         private_key, public_key = generate_ssh_keys()
-        # exit_code, output = container.exec_run(
-        #     f"sh -c '"
-        #     f"mkdir -p /home/ctf_user/.ssh && "
-        #     f"echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
-        #     f"chown -R ctf_user:ctf_user /home/ctf_user && "
-        #     f"chmod 700 /home/ctf_user/.ssh && "
-        #     f"chmod 600 /home/ctf_user/.ssh/authorized_keys && "
-        #     f"sed -i \"s/^ctf_user:!:/ctf_user::/\" /etc/shadow'",
-        #     user="root"
-        # )
+
         exit_code, output = container.exec_run("test -f /etc/ssh/sshd_config", user="root")
         if exit_code != 0:
             logger.error("Le fichier /etc/ssh/sshd_config n'existe pas. Réinstallation d'OpenSSH...")
@@ -383,17 +408,34 @@ class UserChallengeInstance(models.Model):
             if exit_code != 0:
                 logger.error(f"Échec de la génération des clés SSH : {output.decode()}")
                 raise RuntimeError("Échec de la génération des clés SSH")
-            
+        logger.info(f"Challenge ID: {self.challenge.id}, Challenge Name: {self.challenge.title}")
 
-        cmd1 = (
-            "sh -c '"
-            "id -u ctf_user || adduser -D -h /home/ctf_user -s /bin/sh ctf_user && "
-            "mkdir -p /home/ctf_user/.ssh && "
-            "echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
-            "chown -R ctf_user:ctf_user /home/ctf_user && "
-            "chmod 700 /home/ctf_user/.ssh && "
-            "chmod 600 /home/ctf_user/.ssh/authorized_keys'"
-        ).format(public_key=public_key)
+        target = UUID("16a1c409-840b-4edf-8c2c-2a0bbce4d61a")
+        if self.challenge.id == target:
+            encrypted_flag = self.generate_encrypted_flag()
+            print(encrypted_flag)
+            cmd1 = (
+                "sh -c '"
+                "id -u ctf_user || adduser -D -h /home/ctf_user -s /bin/sh ctf_user && "
+                "mkdir -p /home/ctf_user/.ssh && "
+                "echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+                "chown -R ctf_user:ctf_user /home/ctf_user && "
+                "chmod 700 /home/ctf_user/.ssh && "
+                "chmod 600 /home/ctf_user/.ssh/authorized_keys &&"
+                "touch /home/ctf_user/just_ignore_me && "                
+                f"echo \"{encrypted_flag}\" > /home/ctf_user/just_ignore_me && "
+                "chown ctf_user:ctf_user /home/ctf_user/just_ignore_me'"
+            ).format(public_key=public_key, encrypted_flag=encrypted_flag)
+        else:
+            cmd1 = (
+                "sh -c '"
+                "id -u ctf_user || adduser -D -h /home/ctf_user -s /bin/sh ctf_user && "
+                "mkdir -p /home/ctf_user/.ssh && "
+                "echo \"{public_key}\" > /home/ctf_user/.ssh/authorized_keys && "
+                "chown -R ctf_user:ctf_user /home/ctf_user && "
+                "chmod 700 /home/ctf_user/.ssh && "
+                "chmod 600 /home/ctf_user/.ssh/authorized_keys'"
+            ).format(public_key=public_key)
 
 
         exit_code, output = container.exec_run(cmd1, user="root")
@@ -470,6 +512,7 @@ class UserChallengeInstance(models.Model):
             'username': 'ctf_user',
             'key': private_key
         }
+        self.status = 'running'
         self.save()
 
     def stop_container(self):

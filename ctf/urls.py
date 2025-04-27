@@ -16,6 +16,7 @@ router.register(r'categories', ChallengeCategoryViewSet)
 urlpatterns = [
     path('start/<uuid:challenge_id>/', start_challenge, name='start_challenge'),
     path('status/<uuid:instance_id>/', check_status, name='check_status'), 
+    path('stop/<uuid:challenge_id>/', stop_challenge, name='stop_challenge'), 
     path('instances/<str:instance_id>/download-key/', download_ssh_key, name='download-ssh-key'),
     path('docker-templates/', docker_templates_view, name='docker-templates'),
     path('', include(router.urls)),
