@@ -92,7 +92,7 @@ Génère un module de cours détaillé au format JSON strictement conforme à ce
    - Estime réalistement (ex: "4h30" pour 3 sections théoriques + 2 exercices)
    - Format : "Xh" ou "XhXX"
 
-3. **Contenu** (4 à 6 sections minimum) :
+3. **Contenu** (6 à 8 sections minimum) :
    - Alterner théorie (70%) et pratique (30%)
    - Chaque section doit contenir :
      * 1 sous-titre explicite avec h2/h3
@@ -125,7 +125,7 @@ Format JSON strict :
   ]
 }
 
-Ne renvoie QUE le JSON validé sans commentaires. Vérifie la syntaxe avant de répondre.
+Il doit y avoir au moins 6 éléments dans content, Ne renvoie QUE le JSON validé sans commentaires. Vérifie la syntaxe avant de répondre.
 """
 class GenerateModule:
     def __init__(self):
@@ -142,7 +142,7 @@ class GenerateModule:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=0.3,
+                temperature=0.5,
                 response_format={"type": "json_object"},  # Force le mode JSON
                 stream=True
             )
