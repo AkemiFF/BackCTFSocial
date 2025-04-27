@@ -46,7 +46,7 @@ class Event(models.Model):
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     is_featured = models.BooleanField(_('is featured'), default=False)
     requires_subscription = models.BooleanField(_('requires subscription'), default=False)
-    tags = models.ManyToManyField('core.Tag', related_name='events', blank=True)
+    tags = models.ManyToManyField('accounts.Tag', related_name='events', blank=True)
     
     class Meta:
         verbose_name = _('event')

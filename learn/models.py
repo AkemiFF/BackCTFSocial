@@ -1,9 +1,10 @@
-from core.models import Tag
 from django.conf import settings
 from django.contrib.auth.models import User
 from django.db import models
 from django.utils.text import slugify
 from django.utils.translation import gettext_lazy as _
+
+from accounts.models import Tag
 
 
 class Course(models.Model):

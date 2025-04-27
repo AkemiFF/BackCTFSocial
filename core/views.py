@@ -5,7 +5,9 @@ from rest_framework import filters, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import Audit, Category, Feedback, Setting, Skill, Tag
+from accounts.models import Skill, Tag
+
+from .models import Audit, Category, Feedback, Setting
 from .permissions import IsAdminOrReadOnly, IsAdminUser, IsOwnerOrAdmin
 from .serializers import (AuditSerializer, CategorySerializer,
                           FeedbackSerializer, SettingSerializer,

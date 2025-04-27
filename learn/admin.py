@@ -6,6 +6,7 @@ from .models import (Certification, ContentItem, Course, CourseTag,
                      QuizAttempt, QuizOption, QuizQuestion, Tag, TextContent,
                      UserProgress, VideoContent)
 
+admin.site.register(CourseTag)
 
 class CourseTagInline(admin.TabularInline):
     model = CourseTag

@@ -17,24 +17,6 @@ class BaseEntity(models.Model):
         abstract = True
 
 
-class Tag(models.Model):
-    """Tags for categorizing content."""
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(_('name'), max_length=50, unique=True)
-    slug = models.SlugField(_('slug'), max_length=50, unique=True)
-    description = models.TextField(_('description'), blank=True)
-    color = models.CharField(_('color'), max_length=20, blank=True)
-    
-    class Meta:
-        verbose_name = _('tag')
-        verbose_name_plural = _('tags')
-        ordering = ['name']
-    
-    def __str__(self):
-        return self.name
-
-
 class Category(models.Model):
     """Categories for organizing content."""
     
@@ -60,37 +42,6 @@ class Category(models.Model):
         if self.parent:
             return f"{self.parent.full_name} > {self.name}"
         return self.name
-
-
-class Skill(models.Model):
-    """Skills that users can have or learn."""
-    
-    SKILL_TYPES = (
-        ('technical', 'Technical'),
-        ('soft', 'Soft'),
-        ('language', 'Language'),
-        ('tool', 'Tool'),
-        ('framework', 'Framework'),
-        ('methodology', 'Methodology'),
-    )
-    
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    name = models.CharField(_('name'), max_length=100, unique=True)
-    slug = models.SlugField(_('slug'), max_length=100, unique=True)
-    description = models.TextField(_('description'), blank=True)
-    skill_type = models.CharField(_('skill type'), max_length=20, choices=SKILL_TYPES)
-    icon = models.CharField(_('icon'), max_length=50, blank=True)
-    parent = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='children')
-    related_skills = models.ManyToManyField('self', symmetrical=True, blank=True)
-    
-    class Meta:
-        verbose_name = _('skill')
-        verbose_name_plural = _('skills')
-        ordering = ['name']
-    
-    def __str__(self):
-        return self.name
-
 
 class Setting(models.Model):
     """System settings stored as key-value pairs."""

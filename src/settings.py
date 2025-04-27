@@ -62,8 +62,10 @@ INSTALLED_APPS = [
     'crispy_tailwind',
     
     # Hackitech apps
+    'ai',
     'accounts',
-    'learning',
+    'ctf',
+    # 'learning',
     'challenges',
     'social',
     'learn',
@@ -114,13 +116,22 @@ ASGI_APPLICATION = 'src.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
+# DATABASES = {
+#     'default': {
+#         'ENGINE': 'django.db.backends.sqlite3',
+#         'NAME': BASE_DIR / 'db.sqlite3',
+#     }
+# }
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'hackitech',
+        'USER': 'akemi',
+        'PASSWORD': 'akemi',
+        'HOST': 'localhost',
+        'PORT': '5432',
     }
 }
-
 AUTH_USER_MODEL = 'accounts.User'
 
 # Password validation
@@ -192,8 +203,8 @@ REST_FRAMEWORK = {
 }
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=5),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=11),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': False,
     'BLACKLIST_AFTER_ROTATION': True,
 }
@@ -263,6 +274,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
 ]
 
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+]
+
 # Channels settings
 CHANNEL_LAYERS = {
     'default': {
@@ -287,8 +302,8 @@ EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
-EMAIL_HOST_USER = 'mirado.akemi@gmail.com'  # Use environment variables
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD')  # Use environment variables
+EMAIL_HOST_USER = 'mirado.akemi@gmail.com' 
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD') 
 
 # Social Authentication
 AUTHENTICATION_BACKENDS = (
@@ -338,3 +353,124 @@ X_FRAME_OPTIONS = 'DENY'
 # Debug Toolbar
 INTERNAL_IPS = ['127.0.0.1']
 DEFAULT_AVATAR_URL = f'{MEDIA_URL}image.png'
+
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {process:d} {thread:d} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join(BASE_DIR, 'logs/django.log'),
+            'maxBytes': 1024*1024*5,  # 5 MB
+            'backupCount': 5,
+            'formatter': 'verbose'
+        },
+        'console': {
+            'level': 'INFO',
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple'
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file', 'console'],
+            'level': 'INFO',
+            'propagate': True,
+        },
+        'ai': {  # Pour tous les logs des modules AI
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+    },
+}
+
+DOCKER_NETWORK = 'hackitech_network'
+
+DOCKER_CONFIG = {
+    'HOST_IP': '192.168.1.100',  # IP publique du serveur Docker
+    'NETWORK': 'hackitech_network',
+    'VOLUME_PATH': '/var/lib/hackitech/volumes',
+    'AUTO_CLEANUP_HOURS': 2,
+    'RESOURCE_LIMITS': {
+        'cpu_quota': 50000,  # 50% d'un CPU
+        'memory': '512m'
+    }
+}
+
+CELERY_BEAT_SCHEDULE = {
+    'cleanup_containers': {
+        'task': 'core.tasks.cleanup_expired_instances',
+        'schedule': timedelta(minutes=15),
+    },
+    'health_check': {
+        'task': 'core.tasks.health_check_instances',
+        'schedule': timedelta(minutes=5),
+    },
+}
+
+
+# settings.py
+HACKITECH_BASE_IMAGES = {
+    'ssh': {
+        'easy': 'hackitech/ssh-easy:latest',
+        'medium': 'hackitech/ssh-medium:latest',
+        'hard': 'hackitech/ssh-hard:latest'
+    },
+    'web': {
+        'easy': 'hackitech/web-basic:latest',
+        'medium': 'hackitech/web-dvwa:latest',
+        'hard': 'hackitech/web-owasp:latest'
+    },
+    'crypto': {
+        'easy': 'hackitech/crypto-basic:latest',
+        'medium': 'hackitech/crypto-rsa:latest',
+        'hard': 'hackitech/crypto-aes:latest'
+    }
+}
+
+# settings.py
+import uuid
+
+DOCKER_HOST_IP = "127.0.0.1"
+HACKITECH_BASE_CONFIG = {
+    'ssh': {
+        'easy': {
+            'image': 'hackitech/ssh-easy:latest',
+            'ports': {'22/tcp': None},
+            'environment': {
+                'SSH_USER': 'ctf_user',
+                'SSH_PASSWORD': 'pass123'
+            }
+        },
+        'medium': {
+            'image': 'hackitech/ssh-medium:latest',
+            'ports': {'22/tcp': None},
+            'environment': {
+                'SSH_USER': 'user_' + uuid.uuid4().hex[:4],
+                'SSH_USE_KEY': 'true'
+            }
+        }
+    },
+    'web': {
+        'easy': {
+            'image': 'hackitech/web-basic:latest',
+            'ports': {'80/tcp': None},
+            'environment': {
+                'DEBUG': 'true'
+            }
+        }
+    }
+}

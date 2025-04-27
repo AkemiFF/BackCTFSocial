@@ -214,3 +214,51 @@ class ModuleCreateSerializer(serializers.ModelSerializer):
             serializer.save()
         
         return module
+    
+    
+# serializers.py
+from rest_framework import serializers
+
+from .models import Module, QuizOption, QuizQuestion
+
+
+class QuizOptionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = QuizOption
+        fields = ['id', 'text', 'is_correct']
+
+class AdminQuizQuestionSerializer(serializers.ModelSerializer):
+    # On peut envoyer une liste d'options lors de la création
+    options = QuizOptionSerializer(many=True, required=False)
+    module = serializers.PrimaryKeyRelatedField(queryset=Module.objects.all())
+
+    class Meta:
+        model = QuizQuestion
+        fields = ['id', 'module', 'question', 'type', 'order', 'options']
+
+    def create(self, validated_data):
+        # Récupération des options si présentes
+        options_data = validated_data.pop('options', None)
+        # Création de la question
+        question = QuizQuestion.objects.create(**validated_data)
+        # Si c'est une question à choix multiple et que des options ont été envoyées, les créer
+        if options_data and validated_data.get('type') == 'multiple-choice':
+            for option_data in options_data:
+                QuizOption.objects.create(question=question, **option_data)
+        return question
+    
+    def update(self, instance, validated_data):
+        options_data = validated_data.pop('options', None)
+
+        # Mise à jour des champs de la question
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Mise à jour des options pour les questions à choix multiple
+        if options_data is not None and instance.type == "multiple-choice":
+            instance.options.all().delete()  # Supprime les anciennes options
+            for option_data in options_data:
+                QuizOption.objects.create(question=instance, **option_data)
+
+        return instance

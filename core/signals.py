@@ -3,7 +3,7 @@ from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 from django.utils.text import slugify
 
-from .models import Skill
+from accounts.models import Skill
 
 
 @receiver(post_migrate)

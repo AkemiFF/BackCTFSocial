@@ -1,11 +1,7 @@
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
-from .models import (Certification, ContentItem, Course, FileContent,
-                     ImageContent, LinkContent, Module, ModuleCompletion,
-                     PointsTransaction, QuizAnswer, QuizAttempt, QuizOption,
-                     QuizQuestion, Tag, TextContent, UserProgress,
-                     VideoContent)
+from .models import *
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -14,13 +10,18 @@ class UserSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'email', 'first_name', 'last_name']
 
 
+class CourseTagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CourseTag
+        fields = ['id', 'name']
+
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
         fields = ['id', 'name']
 
 class CourseListSerializer(serializers.ModelSerializer):
-    tags = TagSerializer(source='course_tags.tag', many=True, read_only=True)
+    tags = serializers.SerializerMethodField() 
     progress = serializers.SerializerMethodField()
     
     class Meta:
@@ -40,7 +41,16 @@ class CourseListSerializer(serializers.ModelSerializer):
             except UserProgress.DoesNotExist:
                 return 0
         return 0
-
+    
+    def get_tags(self, obj):
+        # Récupérer les tags via la relation CourseTag
+        tags = obj.course_tags.all().select_related('tag')
+        return TagSerializer(
+            [course_tag.tag for course_tag in tags],
+            many=True,
+            context=self.context
+        ).data
+    
 class ModuleListSerializer(serializers.ModelSerializer):
     completed = serializers.SerializerMethodField()
     
@@ -136,7 +146,7 @@ class ContentItemSerializer(serializers.ModelSerializer):
 class QuizOptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = QuizOption
-        fields = ['id', 'text']
+        fields = ['id', 'text',"is_correct"]
 
 class QuizQuestionSerializer(serializers.ModelSerializer):
     options = QuizOptionSerializer(many=True, read_only=True)

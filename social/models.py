@@ -33,7 +33,7 @@ class Post(models.Model):
     is_edited = models.BooleanField(_('is edited'), default=False)
     is_pinned = models.BooleanField(_('is pinned'), default=False)
     is_public = models.BooleanField(_('is public'), default=True)
-    tags = models.ManyToManyField('core.Tag', related_name='posts', blank=True)
+    tags = models.ManyToManyField('accounts.Tag', related_name='posts', blank=True)
     mentions = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name='mentioned_in_posts', blank=True)
     
     class Meta:
@@ -261,7 +261,7 @@ class Project(models.Model):
     image = models.ImageField(_('image'), upload_to='project_images/', blank=True, null=True)
     repository_url = models.URLField(_('repository URL'), blank=True)
     demo_url = models.URLField(_('demo URL'), blank=True)
-    technologies = models.ManyToManyField('core.Skill', related_name='projects', blank=True)
+    technologies = models.ManyToManyField('accounts.Skill', related_name='projects', blank=True)
     created_at = models.DateTimeField(_('created at'), auto_now_add=True)
     updated_at = models.DateTimeField(_('updated at'), auto_now=True)
     is_public = models.BooleanField(_('is public'), default=True)

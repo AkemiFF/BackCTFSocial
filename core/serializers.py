@@ -1,7 +1,9 @@
 # core/serializers.py
 from rest_framework import serializers
 
-from .models import Audit, Category, Feedback, Setting, Skill, Tag
+from accounts.models import Skill, Tag
+
+from .models import Audit, Category, Feedback, Setting
 
 
 class TagSerializer(serializers.ModelSerializer):
