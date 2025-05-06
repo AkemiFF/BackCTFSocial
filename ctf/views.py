@@ -27,12 +27,70 @@ from rest_framework.response import Response
 
 from .models import (Challenge, ChallengeCategory, ChallengeType,
                      DockerConfigTemplate, UserChallengeInstance)
-from .serializers import (ChallengeCategorySerializer, ChallengeSerializer,
-                          ChallengeTypeSerializer,
-                          DockerConfigTemplateSerializer)
+from .serializers import *
 
 logger = logging.getLogger(__name__)
 
+from .serializers import FlagSubmissionSerializer
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def submit_flag(request):
+    try:
+        # Extraire le JSON du corps de la requête
+        raw_body = request.data.get('body', '{}')
+        
+        # Parser le JSON
+        parsed_data = json.loads(raw_body)
+        
+        # Ajouter le user dans les données parsées
+        parsed_data['user'] = request.user.id
+        
+    except json.JSONDecodeError:
+        return Response(
+            {'detail': 'Format JSON invalide dans le body'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+        
+    serializer = ChallengeSubmissionSerializer(
+        data=parsed_data,
+        context={'request': request}
+    )
+    print( serializer)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        # Création de la soumission avec statut initial
+        submission = serializer.save(
+            user=request.user,
+            logs=f"Soumission à {timezone.now()}"
+        )
+        
+        # Validation selon le type de challenge
+        submission.validate_submission()
+      
+        return Response({
+            'submission_id': submission.id,
+            'success': submission.is_correct,
+            'message': submission.logs,
+            "points_earned": submission.challenge.points
+        }, status=status.HTTP_201_CREATED)
+
+    except UserChallengeInstance.DoesNotExist:
+        return Response(
+            {'detail': 'Instance du challenge non trouvée'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+    except Exception as e:
+        submission.logs += f"\nErreur: {str(e)}"
+        submission.save()
+        return Response(
+            {'detail': 'Erreur lors de la validation'},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR
+        )
+    
 @api_view(['GET'])
 def check_status(request, instance_id):
     instance = get_object_or_404(UserChallengeInstance, challenge_id=instance_id, user=request.user)
