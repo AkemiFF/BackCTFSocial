@@ -1,8 +1,7 @@
 # serializers.py
 from rest_framework import serializers
 
-from .models import (Challenge, ChallengeCategory, ChallengeType,
-                     DockerConfigTemplate)
+from .models import *
 
 
 class ChallengeSerializer(serializers.ModelSerializer):
@@ -20,8 +19,30 @@ class DockerConfigTemplateCreateSerializer(serializers.ModelSerializer):
         model = DockerConfigTemplate
         fields = '__all__'
 
+class FlagSubmissionSerializer(serializers.Serializer):
+    challenge_id = serializers.PrimaryKeyRelatedField(
+        queryset=Challenge.objects.all(),
+        required=True
+    )
+    submitted_flag = serializers.CharField(
+        max_length=255, 
+        required=True, 
+        trim_whitespace=True
+    )
 
+class ChallengeSubmissionSerializer(serializers.ModelSerializer):
+    challenge_id = serializers.PrimaryKeyRelatedField(
+        source='challenge',
+        queryset=Challenge.objects.all(),
+        required=True
+    )
 
+    class Meta:
+        model = ChallengeSubmission
+        fields = ['challenge_id', 'submitted_flag']
+        extra_kwargs = {
+            'submitted_flag': {'trim_whitespace': False}
+        }
 class ChallengeTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = ChallengeType
