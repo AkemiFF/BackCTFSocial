@@ -568,7 +568,7 @@ class ChallengeSubmission(models.Model):
     
     def validate_submission(self):
         """Valide le flag selon le type de défi"""
-        challenge_type = self.challenge.challenge_type.slug
+        challenge_type = self.challenge.challenge_type.slug        
         
         if challenge_type == 'ssh':
             self._validate_ssh()
@@ -584,6 +584,9 @@ class ChallengeSubmission(models.Model):
             challenge=self.challenge
         )
         self.is_correct = (self.submitted_flag == instance.unique_flag)
+        print(instance.unique_flag)
+        if (self.is_correct) :
+            self.user.update_points(self.challenge.points)
     
     def _validate_web(self):
         # Exemple: Vérification via requête HTTP

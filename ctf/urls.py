@@ -18,6 +18,7 @@ urlpatterns = [
     path('status/<uuid:instance_id>/', check_status, name='check_status'), 
     path('stop/<uuid:challenge_id>/', stop_challenge, name='stop_challenge'), 
     path('instances/<str:instance_id>/download-key/', download_ssh_key, name='download-ssh-key'),
+    path('submit-flag/', submit_flag, name='submit_flag'),
     path('docker-templates/', docker_templates_view, name='docker-templates'),
     path('', include(router.urls)),
 ]
