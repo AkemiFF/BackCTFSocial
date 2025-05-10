@@ -98,7 +98,7 @@ class Challenge(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(_('active'), default=True)
     dockerfile = models.TextField(_('dockerfile'), blank=True)
-    docker_context = models.JSONField(_('contexte Docker'), default=dict)
+    docker_context = models.JSONField(_('contexte Docker'), default=dict, blank=True,null=True)
     built_image = models.CharField(_('image construite'), max_length=255, blank=True)
     setup_ssh = models.BooleanField(_('setup SSH'), default=False)
     

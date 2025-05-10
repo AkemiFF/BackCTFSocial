@@ -79,7 +79,7 @@ class ChallengeSerializer(serializers.ModelSerializer):
         write_only=True,
         required=False
     )
-    
+    is_solved = serializers.SerializerMethodField()
     class Meta:
         model = Challenge
         fields = [
@@ -88,9 +88,20 @@ class ChallengeSerializer(serializers.ModelSerializer):
             'environment_vars', 'startup_command', 'static_flag', 
             'flag_generation_script', 'validation_script', 'created_at', 
             'is_active', 'dockerfile', 'docker_context', 'built_image', 
-            'setup_ssh', 'categories', 'category_ids'
+            'setup_ssh', 'categories', 'category_ids','is_solved'
         ]
         read_only_fields = ['id', 'created_at', 'built_image']
+    
+    def get_is_solved(self, obj):
+        """Détermine si l'utilisateur actuel a terminé le défi avec succès."""
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return ChallengeSubmission.objects.filter(
+                user=request.user,
+                challenge=obj,
+                is_correct=True
+            ).exists()
+        return False
     
     def create(self, validated_data):
         category_ids = validated_data.pop('category_ids', [])
