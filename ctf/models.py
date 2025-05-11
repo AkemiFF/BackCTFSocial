@@ -556,7 +556,7 @@ class UserChallengeInstance(models.Model):
         self.save()
 class ChallengeSubmission(models.Model):
     """Soumission d'un défi avec vérification avancée"""
-    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='challenge_submissions')    
     challenge = models.ForeignKey(Challenge, on_delete=models.CASCADE)
     submitted_flag = models.CharField(max_length=255)
     is_correct = models.BooleanField(default=False)
