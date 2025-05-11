@@ -8,6 +8,7 @@ router.register(r'modules', ModuleViewSet)
 router.register(r'user/progress', UserProgressViewSet, basename='user-progress')
 router.register(r'user/certifications', CertificationViewSet, basename='user-certifications')
 router.register(r'user/points/transactions', PointsTransactionViewSet, basename='points-transactions')
+# router.register(r'leaderboard', LeaderboardViewSet, basename='leaderboard')
 
 admin_router = DefaultRouter()
 admin_router.register(r'courses', AdminCourseViewSet)

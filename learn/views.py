@@ -1,10 +1,12 @@
 import json
 
 from accounts.models import *
+from accounts.models import User
 from django.db import transaction
 from django.db.models import Count, Q
 from django.shortcuts import get_object_or_404
 from django.utils.text import slugify
+from django_filters.rest_framework import DjangoFilterBackend
 from learn.models import (Certification, ContentItem, Course, Module,
                           ModuleCompletion, PointsTransaction, QuizAnswer,
                           QuizAttempt, QuizOption, QuizQuestion, Tag,
@@ -442,6 +444,10 @@ class ModuleViewSet(viewsets.ReadOnlyModelViewSet):
         
         # Marquer le module comme complété
         time_spent = request.data.get('time_spent', 0)
+        user = request.user
+        
+        user.update_points(50)
+        
         ModuleCompletion.objects.create(
             user=request.user,
             module=module,

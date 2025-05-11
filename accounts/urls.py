@@ -9,6 +9,7 @@ router = DefaultRouter()
 router.register(r'users', UserViewSet)
 router.register(r'profiles', UserProfileViewSet)
 router.register(r'sessions', UserSessionViewSet, basename='session')
+router.register(r'leaderboard', LeaderboardViewSet, basename='leader')
 
 urlpatterns = [
     path('my_profile/', UserProfileDetailsViewSet.as_view({'get': 'retrieve', 'patch': 'partial_update'}), name='my-profile'),

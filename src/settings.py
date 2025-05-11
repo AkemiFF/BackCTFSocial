@@ -31,7 +31,7 @@ SECRET_KEY = 'django-insecure-ziga4(mvp@=cq4p4&vaq9*7hpr*h3r&j0rk=0m1uv%6@2v4b&u
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ["*"]
 
 # Application definition
 
@@ -272,10 +272,12 @@ CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "https://dashctfserver.onrender.com",
 ]
 
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
+    "https://dashctfserver.onrender.com",
 ]
 
 # Channels settings

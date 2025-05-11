@@ -1,10 +1,61 @@
 # accounts/serializers.py
+from accounts.models import Skill
+from django.conf import settings
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from rest_framework import serializers
 
-from accounts.models import Skill
-
 from .models import *
+
+
+class LeaderboardUserSerializer(serializers.ModelSerializer):
+    # ➜ On déclare bien tous les SerializerMethodField utilisés
+    name = serializers.SerializerMethodField()
+    rank = serializers.SerializerMethodField()
+    category = serializers.SerializerMethodField()
+    completedChallenges = serializers.IntegerField(source='num_completed')
+    badges = serializers.SerializerMethodField()
+    joinedDate = serializers.DateTimeField(source='date_joined')
+    avatar = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'rank',
+            'name',
+            'points',
+            'category',
+            'completedChallenges',
+            'badges',
+            'joinedDate',
+            'avatar',
+        ]
+
+    def get_rank(self, obj):
+        # Pour de très gros jeux de données, on pourra remplacer par une Window Function
+        all_ids = list(User.objects.order_by('-points').values_list('id', flat=True))
+        return all_ids.index(obj.id) + 1
+  
+    
+    def get_category(self, obj):
+        # Utilise votre méthode de modèle get_rank() définie dans User
+        return obj.get_rank()
+
+    def get_badges(self, obj):
+        # Remplacez par votre vraie logique de badges
+        return ["Master Hacker", "CTF Champion", "Bug Hunter"]
+    
+    def get_avatar(self, obj):
+            request = self.context.get('request')
+            if obj.photo:
+                return request.build_absolute_uri(obj.photo.url) if request else obj.photo.url
+            else:
+                default_avatar_url = getattr(settings, 'DEFAULT_AVATAR_URL', '/placeholder.svg')
+                return request.build_absolute_uri(default_avatar_url) if request else default_avatar_url
+
+    def get_name(self, obj):
+        return obj.get_full_name() or obj.username
+
 
 
 class SkillSerializer(serializers.ModelSerializer):

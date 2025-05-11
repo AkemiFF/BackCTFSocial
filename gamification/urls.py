@@ -4,8 +4,8 @@ from rest_framework.routers import DefaultRouter
 
 from .views import (AchievementViewSet, BadgeViewSet, ChallengeViewSet,
                     GamificationAPIRootView, LeaderboardEntryViewSet,
-                    LeaderboardViewSet, LevelViewSet, PointViewSet,
-                    RewardViewSet, UserAchievementViewSet, UserBadgeViewSet,
+                    LevelViewSet, PointViewSet, RewardViewSet,
+                    UserAchievementViewSet, UserBadgeViewSet,
                     UserChallengeViewSet, UserGamificationProfileViewSet,
                     UserLevelViewSet, UserRewardViewSet)
 
@@ -21,7 +21,6 @@ router.register(r'achievements', AchievementViewSet, basename='achievement')
 router.register(r'user-achievements', UserAchievementViewSet, basename='userachievement')
 router.register(r'rewards', RewardViewSet, basename='reward')
 router.register(r'user-rewards', UserRewardViewSet, basename='userreward')
-router.register(r'leaderboards', LeaderboardViewSet, basename='leaderboard')
 router.register(r'leaderboard-entries', LeaderboardEntryViewSet, basename='leaderboardentry')
 router.register(r'user-profiles', UserGamificationProfileViewSet, basename='usergamificationprofile')
 

@@ -1,3 +1,4 @@
+from ctf.models import *
 from django.contrib.auth.models import User
 from rest_framework import serializers
 
@@ -23,13 +24,14 @@ class TagSerializer(serializers.ModelSerializer):
 class CourseListSerializer(serializers.ModelSerializer):
     tags = serializers.SerializerMethodField() 
     progress = serializers.SerializerMethodField()
+    nb_modules = serializers.SerializerMethodField()
     
     class Meta:
         model = Course
         fields = [
             'id', 'title', 'slug', 'description', 'level', 'category',
             'duration', 'instructor', 'image', 'students', 'rating',
-            'tags', 'progress'
+            'tags', 'progress','nb_modules'
         ]
     
     def get_progress(self, obj):
@@ -40,6 +42,12 @@ class CourseListSerializer(serializers.ModelSerializer):
                 return progress.progress
             except UserProgress.DoesNotExist:
                 return 0
+        return 0
+    
+    def get_nb_modules(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.modules.count()
         return 0
     
     def get_tags(self, obj):
@@ -219,3 +227,4 @@ class UserPointsSerializer(serializers.Serializer):
     level = serializers.IntegerField()
     next_level_points = serializers.IntegerField()
     level_progress = serializers.FloatField()
+   

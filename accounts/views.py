@@ -7,6 +7,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.core.mail import send_mail
 from django.db import IntegrityError
+from django.db.models import Count, Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import filters, permissions, status, viewsets
@@ -21,6 +22,22 @@ from .models import (RegistrationRequest, User, UserFollowing, UserProfile,
 from .permissions import IsOwnerOrReadOnly, IsUserOrAdmin
 from .serializers import *
 
+
+class LeaderboardViewSet(viewsets.ReadOnlyModelViewSet):
+    serializer_class = LeaderboardUserSerializer
+
+    def get_queryset(self):
+        return (
+            User.objects
+            .annotate(
+                num_completed=Count(
+                'challenge_submissions',
+                filter=Q(challenge_submissions__is_correct=True),
+                distinct=True
+                )
+            )        
+            .order_by('-points')
+        )
 
 class UserProfileDetailsViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
