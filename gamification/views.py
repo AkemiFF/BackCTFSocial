@@ -544,35 +544,6 @@ class UserRewardViewSet(viewsets.ModelViewSet):
         )
 
 
-class LeaderboardViewSet(viewsets.ModelViewSet):
-    """
-    API endpoint for leaderboards.
-    """
-    queryset = Leaderboard.objects.all()
-    serializer_class = LeaderboardSerializer
-    permission_classes = [IsAdminOrReadOnly]
-    filter_backends = [DjangoFilterBackend, filters.OrderingFilter]
-    filterset_fields = ['category', 'period', 'is_active']
-    ordering_fields = ['start_date']
-    ordering = ['-start_date']
-    
-    def get_serializer_class(self):
-        if self.action == 'retrieve':
-            return LeaderboardDetailSerializer
-        return LeaderboardSerializer
-    
-    @action(detail=False, methods=['post'])
-    def create_periodic(self, request):
-        """Create periodic leaderboards."""
-        if not request.user.is_staff:
-            return Response(
-                {"detail": "You do not have permission to perform this action."},
-                status=status.HTTP_403_FORBIDDEN
-            )
-        
-        leaderboard_service.create_periodic_leaderboards()
-        return Response({"detail": "Periodic leaderboards created successfully."})
-
 
 class LeaderboardEntryViewSet(viewsets.ReadOnlyModelViewSet):
     """
